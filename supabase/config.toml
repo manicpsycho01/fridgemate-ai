@@ -1,0 +1,6 @@
+# Local Supabase CLI (https://supabase.com/docs/guides/cli)
+# Deploy: supabase functions deploy detect-fridge-items
+# Secret: supabase secrets set GEMINI_API_KEY=your_key
+
+[functions.detect-fridge-items]
+verify_jwt = true

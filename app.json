@@ -1,5 +1,6 @@
 {
   "expo": {
+    "scheme": "fridgemate",
     "name": "fridgemate-ai",
     "slug": "fridgemate-ai",
     "version": "1.0.0",
@@ -13,7 +14,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "FridgeMate AI needs photo library access to choose a fridge photo for the demo.",
+        "NSCameraUsageDescription": "FridgeMate AI uses the camera to take a fridge photo if you prefer that over the gallery."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,6 +30,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow FridgeMate AI to access your photos to pick a fridge image for the demo.",
+          "cameraPermission": "Allow FridgeMate AI to use the camera to photograph your fridge."
+        }
+      ]
+    ]
   }
 }
