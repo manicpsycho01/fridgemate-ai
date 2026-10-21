@@ -4,3 +4,9 @@
 
 [functions.detect-fridge-items]
 verify_jwt = true
+
+[functions.suggest-recipes]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true

@@ -8,18 +8,20 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "FridgeMate AI needs photo library access to choose a fridge photo for the demo.",
         "NSCameraUsageDescription": "FridgeMate AI uses the camera to take a fridge photo if you prefer that over the gallery."
-      }
+      },
+      "bundleIdentifier": "com.manicpsycho01.fridgemate"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#2A66FF"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.manicpsycho01.fridgemate"
     },
     "web": {
       "favicon": "./assets/favicon.png"
