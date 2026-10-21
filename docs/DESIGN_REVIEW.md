@@ -119,7 +119,7 @@ Implementation log for the Fresh Market redesign (branch `ios-sdk58`, local comm
 - [x] 1. Tokens (`theme/tokens.ts`), Fraunces + Inter loaded in `app/_layout.tsx` (splash held), reanimated + svg, primitives (`Text`, `Button` hero/primary/secondary/ghost, `Surface`, `IconTile` + `lib/foodIcon.ts`, `FreshnessRing`, `Chip`, `SectionHeader`, `AnimatedEntrance`, `PressableScale`, `components/TabBar.tsx`). Legacy token aliases (`type`, `shadows`, `gradient`, old colour names) remain in tokens.ts until every screen is migrated — delete them last.
 - [x] 2. Welcome (hero centred in free space, floating via `hooks/useFloat.ts`; unused landing icons deleted)
 - [x] 3. Login / Sign up (AuthForm restyled only; logic untouched)
-- [ ] 4. Home
+- [x] 4. Home (`components/home/*`, `lib/displayName.ts`; shopping ticks are session-only UI)
 - [ ] 5. Fridge
 - [ ] 6. Cook + Recipe detail
 - [ ] 7. Scan + Confirm
