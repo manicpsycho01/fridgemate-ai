@@ -1,38 +1,37 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { AiLabel } from "../../../components/cook/AiLabel";
 import { RecipeCard } from "../../../components/RecipeCard";
 import { AppHeader } from "../../../components/ui/AppHeader";
 import { Banner } from "../../../components/ui/Banner";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
+import { AnimatedEntrance } from "../../../components/ui/AnimatedEntrance";
 import { Chip } from "../../../components/ui/Chip";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { ScrollScreen } from "../../../components/ui/Screen";
 import { SectionHeader } from "../../../components/ui/SectionHeader";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { Text } from "../../../components/ui/Text";
 import { useInventory } from "../../../hooks/useInventory";
 import { suggestRecipes, type RecipeSuggestions } from "../../../lib/aiRecipes";
 import { freshness } from "../../../lib/freshness";
 import { ingredientMatchesItem } from "../../../lib/ingredientMatch";
-import { itemEmoji } from "../../../lib/itemEmoji";
-import { animateNextLayout } from "../../../lib/layoutAnim";
 import { isStringArray, openRecipe, parseJsonParam } from "../../../lib/recipeRoute";
-import { colors, radius, spacing, type } from "../../../theme/tokens";
+import { colors, radius, shadow, spacing } from "../../../theme/tokens";
 
 const SEP = "\u0001";
 
 function RecipeSkeleton() {
   return (
-    <Card style={styles.skel}>
-      <Skeleton width={56} height={56} rounded={radius.md} />
-      <View style={{ flex: 1, gap: 8 }}>
-        <Skeleton width="70%" height={18} />
-        <Skeleton width="95%" height={12} />
+    <View style={styles.skel}>
+      <Skeleton height={128} rounded={0} />
+      <View style={styles.skelBody}>
+        <Skeleton width="90%" height={12} />
         <Skeleton width="45%" height={12} />
       </View>
-    </Card>
+    </View>
   );
 }
 
@@ -62,7 +61,6 @@ export default function CookScreen() {
       const extra = names.filter((n) => !inFridge.some((i) => i.name.trim() === n));
       const next = await suggestRecipes(inFridge, extra);
       if (id !== requestId.current) return;
-      animateNextLayout();
       setResult(next);
       setResultKey(names.join(SEP));
       setGenerating(false);
@@ -99,101 +97,114 @@ export default function CookScreen() {
 
   const emptyFridge = !loading && pool.length === 0;
 
-  return (
-    <ScrollScreen refreshing={refreshing} onRefresh={() => void refresh()}>
-      <AppHeader title="What to cook" subtitle="Recipe ideas built from what you already have." />
+  const unpicked = pool.filter((n) => !picked.has(n));
 
+  return (
+    <ScrollScreen refreshing={refreshing} onRefresh={() => void refresh()} header={<AppHeader title="What to cook" subtitle="Ideas built from what you already have." />}>
       {session?.length ? (
         <View style={styles.session}>
-          <Ionicons name="flash" size={18} color={colors.primaryDeep} />
-          <Text style={styles.sessionText}>Cooking with a hand-picked set of {session.length} {session.length === 1 ? "ingredient" : "ingredients"}.</Text>
-          <Button label="Use whole fridge" variant="ghost" size="md" onPress={() => router.setParams({ sessionIngredients: undefined })} />
+          <Ionicons name="flash" size={18} color={colors.herb} />
+          <Text variant="callout" tone="herb" style={styles.flex}>
+            Cooking with {session.length} hand-picked {session.length === 1 ? "ingredient" : "ingredients"}.
+          </Text>
+          <Button label="Whole fridge" variant="ghost" size="md" onPress={() => router.setParams({ sessionIngredients: undefined })} />
         </View>
       ) : null}
 
       {loading ? (
-        <View style={{ gap: spacing.sm }}>
+        <View style={styles.list}>
           <RecipeSkeleton />
           <RecipeSkeleton />
         </View>
       ) : emptyFridge ? (
-        <EmptyState title="Nothing to cook with yet" message="Add a few items to your fridge and Freo will suggest recipes that use them up.">
-          <Button label="Scan my fridge" icon="scan-outline" onPress={() => router.push("/(app)/(tabs)/scan")} />
-          <Button label="Add items" variant="secondary" onPress={() => router.push({ pathname: "/(app)/(tabs)/inventory", params: { add: "1" } })} />
+        <EmptyState title="Nothing to cook with yet" message="Add a few items and Freo will suggest recipes that use them up.">
+          <Button variant="hero" label="Scan fridge" icon="camera" onPress={() => router.push("/(app)/(tabs)/scan")} />
+          <Button label="Add items" variant="ghost" onPress={() => router.push({ pathname: "/(app)/(tabs)/inventory", params: { add: "1" } })} />
         </EmptyState>
       ) : (
         <>
           <View>
             <SectionHeader
-              title="Ingredients"
+              title="Cooking with"
               action={picked.size === pool.length ? "Clear" : "Select all"}
               onAction={() => setPicked(picked.size === pool.length ? new Set() : new Set(pool))}
             />
-            <View style={styles.chips}>
-              {pool.map((name) => {
-                const status = urgency(name);
-                return (
-                  <Chip
-                    key={name}
-                    food={name}
-                    label={name}
-                    selected={picked.has(name)}
-                    tone={status === "expired" ? "danger" : status === "soon" ? "warning" : "default"}
-                    onPress={() => toggle(name)}
-                  />
-                );
-              })}
-            </View>
-            <Text style={styles.hint}>Amber and red items are close to their best-by estimate, so ideas use them first.</Text>
+            {pickedNames.length ? (
+              <View style={styles.chips}>
+                {pickedNames.map((name) => {
+                  const status = urgency(name);
+                  return (
+                    <Chip
+                      key={name}
+                      food={name}
+                      label={name}
+                      tone={status === "expired" ? "danger" : status === "soon" ? "warning" : "default"}
+                      trailingIcon="close"
+                      accessibilityLabel={`Remove ${name}`}
+                      onPress={() => toggle(name)}
+                    />
+                  );
+                })}
+              </View>
+            ) : (
+              <Text variant="callout" tone="secondary">
+                Pick at least one ingredient to get ideas.
+              </Text>
+            )}
+            {unpicked.length ? (
+              <View style={styles.addBack}>
+                <Text variant="label" tone="tertiary">
+                  Also in your fridge
+                </Text>
+                <View style={styles.chips}>
+                  {unpicked.map((name) => (
+                    <Chip key={name} food={name} label={name} trailingIcon="add" accessibilityLabel={`Add ${name}`} onPress={() => toggle(name)} />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+            <Text variant="caption" tone="tertiary" style={styles.hint}>
+              Amber and red items are close to their best-by estimate, so ideas use them first.
+            </Text>
           </View>
 
-          {pickedNames.length === 0 ? (
-            <Banner tone="info" message="Select at least one ingredient to get ideas." />
-          ) : stale ? (
-            <Button label="Update ideas" icon="sparkles" onPress={() => void generate(pickedNames)} loading={generating} />
-          ) : null}
+          {stale ? <Button label="Update ideas" icon="sparkles" onPress={() => void generate(pickedNames)} loading={generating} /> : null}
 
-          <View style={{ gap: spacing.sm }}>
+          <View style={styles.list}>
             <View style={styles.resultsHead}>
-              <Text style={styles.resultsTitle} accessibilityRole="header">
+              <Text variant="title" accessibilityRole="header" style={styles.flex}>
                 Ideas for you
               </Text>
-              {result && !generating ? (
-                <View style={[styles.source, result.source === "ai" ? styles.sourceAi : styles.sourceOffline]}>
-                  <Ionicons name={result.source === "ai" ? "sparkles" : "cloud-offline-outline"} size={12} color={result.source === "ai" ? colors.primaryDeep : colors.textSecondary} />
-                  <Text style={[styles.sourceText, result.source === "ai" && { color: colors.primaryDeep }]}>{result.source === "ai" ? "AI" : "Offline ideas"}</Text>
-                </View>
-              ) : null}
+              {generating || result ? <AiLabel source={result?.source ?? null} busy={generating} /> : null}
             </View>
-            {result?.note && !generating ? <Text style={styles.note}>{result.note}</Text> : null}
+            {result?.note && !generating ? (
+              <Text variant="caption" tone="secondary">
+                {result.note}
+              </Text>
+            ) : null}
 
             {generating ? (
               <>
-                <Text style={styles.note}>Freo is thinking up recipes…</Text>
-                <RecipeSkeleton />
                 <RecipeSkeleton />
                 <RecipeSkeleton />
               </>
             ) : result && result.recipes.length === 0 ? (
-              <Card>
-                <Text style={styles.note}>No ideas for that exact mix. Try selecting a few more ingredients.</Text>
-              </Card>
+              <Text variant="callout" tone="secondary">
+                No ideas for that exact mix. Try adding a few more ingredients.
+              </Text>
             ) : (
               result?.recipes.map((r, i) => {
                 const have = r.ingredientsUsed.filter((ing) => pool.some((p) => ingredientMatchesItem(ing, p))).length;
                 return (
-                  <RecipeCard
-                    key={`${r.title}-${i}`}
-                    recipe={r}
-                    onPress={() => openRecipe(router, r)}
-                    footnote={`Uses ${have} of ${r.ingredientsUsed.length} ingredients you have`}
-                  />
+                  <AnimatedEntrance key={`${r.title}-${i}`} index={i}>
+                    <RecipeCard recipe={r} uses={have} onPress={() => openRecipe(router, r)} />
+                  </AnimatedEntrance>
                 );
               })
             )}
 
             {result && !generating && pickedNames.length > 0 ? (
-              <Button label="Refresh ideas" icon="refresh" variant="secondary" onPress={() => void generate(pickedNames)} />
+              <Button label="More ideas" icon="refresh" variant="ghost" onPress={() => void generate(pickedNames)} />
             ) : null}
           </View>
         </>
@@ -203,16 +214,13 @@ export default function CookScreen() {
 }
 
 const styles = StyleSheet.create({
-  session: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: colors.primarySoft, borderRadius: radius.md, paddingLeft: spacing.sm, paddingVertical: spacing.xxs },
-  sessionText: { ...type.footnote, fontWeight: "500", color: colors.primaryDeep, flex: 1 },
+  flex: { flex: 1 },
+  session: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: colors.herbSoft, borderRadius: radius.md, paddingLeft: spacing.md, paddingVertical: spacing.xxs },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
-  hint: { ...type.footnote, color: colors.textTertiary, marginTop: spacing.sm },
+  addBack: { gap: spacing.xs, marginTop: spacing.lg },
+  hint: { marginTop: spacing.md },
+  list: { gap: spacing.md },
   resultsHead: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  resultsTitle: { ...type.title3, color: colors.textPrimary, flex: 1 },
-  source: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 },
-  sourceAi: { backgroundColor: colors.primaryMuted },
-  sourceOffline: { backgroundColor: colors.surfaceAlt },
-  sourceText: { ...type.caption, color: colors.textSecondary },
-  note: { ...type.footnote, color: colors.textSecondary },
-  skel: { flexDirection: "row", gap: spacing.sm },
+  skel: { backgroundColor: colors.surface, borderRadius: radius.lg, overflow: "hidden", ...shadow },
+  skelBody: { padding: spacing.md, gap: spacing.xs },
 });

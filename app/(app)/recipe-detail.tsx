@@ -1,23 +1,24 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MetaPill } from "../../components/RecipeCard";
+import { RecipeBlock } from "../../components/RecipeCard";
+import { AnimatedEntrance } from "../../components/ui/AnimatedEntrance";
 import { Banner } from "../../components/ui/Banner";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
-import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { IconButton } from "../../components/ui/IconButton";
+import { IconTile } from "../../components/ui/IconTile";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { Text } from "../../components/ui/Text";
 import { success, warning } from "../../lib/haptics";
 import { ingredientMatchesAny } from "../../lib/ingredientMatch";
 import { applyPerIngredientRecipeUsage, getInventory } from "../../lib/inventory";
-import { recipeEmoji } from "../../lib/itemEmoji";
 import { parseJsonParam } from "../../lib/recipeRoute";
 import { saveRecipeToHistory } from "../../lib/recipes";
-import { colors, radius, spacing, type } from "../../theme/tokens";
+import { colors, fonts, spacing } from "../../theme/tokens";
 import type { PerIngredientUsage, Recipe } from "../../types";
 
 const USAGE: { value: PerIngredientUsage; label: string }[] = [
@@ -52,7 +53,7 @@ export default function RecipeDetailScreen() {
 
   if (!recipe) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top + spacing.xl, paddingHorizontal: spacing.lg }]}>
+      <View style={[styles.root, styles.missing, { paddingTop: insets.top + spacing.xl }]}>
         <EmptyState title="Recipe not found" message="This recipe couldn't be opened.">
           <Button label="Go back" onPress={back} />
         </EmptyState>
@@ -95,38 +96,62 @@ export default function RecipeDetailScreen() {
   }
 
   const m = recipe.macros;
-  const macros = m
-    ? [
-        { label: "Calories", value: `${m.calories}`, unit: "kcal" },
-        { label: "Protein", value: `${m.protein}`, unit: "g" },
-        { label: "Carbs", value: `${m.carbs}`, unit: "g" },
-        { label: "Fat", value: `${m.fat}`, unit: "g" },
-        { label: "Fiber", value: `${m.fiber}`, unit: "g" },
-      ]
-    : [];
-  const haveCount = recipe.ingredientsUsed.filter(have).length;
+  const meta = [
+    { label: "Time", value: recipe.time },
+    { label: "Level", value: recipe.difficulty },
+    ...(m ? [{ label: "Energy", value: `${m.calories} kcal` }, { label: "Protein", value: `${m.protein} g` }] : []),
+  ];
+  const owned = recipe.ingredientsUsed.filter(have);
+  const missing = recipe.ingredientsUsed.filter((ing) => !have(ing));
+
+  const ingredientList = (title: string, list: string[], ok: boolean) =>
+    list.length ? (
+      <View>
+        <Text variant="title" accessibilityRole="header" style={styles.sectionTitle}>
+          {title}
+        </Text>
+        {list.map((ing, i) => (
+          <View key={`${i}-${ing}`} style={[styles.ingRow, i > 0 && styles.hairline]}>
+            <IconTile name={ing} size={36} />
+            <Text variant="body" style={styles.ingName}>
+              {ing}
+            </Text>
+            {ok ? <Ionicons name="checkmark-circle" size={22} color={colors.fresh} accessibilityLabel="In your fridge" /> : null}
+          </View>
+        ))}
+      </View>
+    ) : null;
 
   return (
     <View style={styles.root}>
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing.xs }]} showsVerticalScrollIndicator={false}>
-        <View style={styles.inner}>
-          <IconButton icon="chevron-back" label="Back" onPress={back} />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <RecipeBlock recipe={recipe} height={insets.top + 260} glyphSize={230} style={[styles.hero, { paddingTop: insets.top + spacing.xs }]}>
+          <IconButton icon="chevron-back" label="Back" onPress={back} style={styles.back} />
+          <View style={styles.heroSpacer} />
+          <Text variant="display" accessibilityRole="header" numberOfLines={4} style={[styles.title, recipe.title.length > 32 && styles.titleLong]}>
+            {recipe.title}
+          </Text>
+        </RecipeBlock>
 
-          <View style={styles.hero}>
-            <View style={styles.heroThumb}>
-              <Text style={styles.heroEmoji}>{recipeEmoji(recipe.title)}</Text>
-            </View>
-            <Text style={styles.title} accessibilityRole="header">
-              {recipe.title}
+        <View style={styles.inner}>
+          <AnimatedEntrance index={0} style={styles.metaRow}>
+            {meta.map((t) => (
+              <View key={t.label} style={styles.meta}>
+                <Text variant="label" tone="tertiary">
+                  {t.label}
+                </Text>
+                <Text variant="calloutStrong" numeric numberOfLines={1}>
+                  {t.value}
+                </Text>
+              </View>
+            ))}
+          </AnimatedEntrance>
+
+          {recipe.description ? (
+            <Text variant="body" tone="secondary">
+              {recipe.description}
             </Text>
-            {recipe.description ? <Text style={styles.desc}>{recipe.description}</Text> : null}
-            <View style={styles.pills}>
-              <MetaPill icon="time-outline" label={recipe.time} />
-              <MetaPill icon="speedometer-outline" label={recipe.difficulty} />
-              {m ? <MetaPill icon="flame-outline" label={`${m.calories} kcal`} /> : null}
-              {m ? <MetaPill icon="barbell-outline" label={`${m.protein}g protein`} /> : null}
-            </View>
-          </View>
+          ) : null}
 
           {status ? (
             <Banner
@@ -137,62 +162,42 @@ export default function RecipeDetailScreen() {
             />
           ) : null}
 
-          {macros.length ? (
-            <View style={styles.macroRow}>
-              {macros.map((t) => (
-                <View key={t.label} style={styles.macro}>
-                  <Text style={styles.macroValue} numberOfLines={1} adjustsFontSizeToFit>
-                    {t.value}
-                    <Text style={styles.macroUnit}>{t.unit}</Text>
-                  </Text>
-                  <Text style={styles.macroLabel}>{t.label}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
+          {fridgeNames ? (
+            <>
+              {ingredientList("You have", owned, true)}
+              {ingredientList(owned.length ? "You'll also need" : "Ingredients", missing, false)}
+            </>
+          ) : (
+            ingredientList("Ingredients", recipe.ingredientsUsed, false)
+          )}
 
           <View>
-            <View style={styles.sectionRow}>
-              <Text style={styles.section}>Ingredients</Text>
-              {fridgeNames ? (
-                <Text style={styles.sectionMeta}>
-                  You have {haveCount} of {recipe.ingredientsUsed.length}
-                </Text>
-              ) : null}
-            </View>
-            <Card padded={false}>
-              {recipe.ingredientsUsed.map((ing, i) => {
-                const ok = have(ing);
-                return (
-                  <View key={`${i}-${ing}`} style={[styles.ingRow, i > 0 && styles.divider]}>
-                    <Ionicons name={ok ? "checkmark-circle" : "ellipse-outline"} size={22} color={ok ? colors.success : colors.textTertiary} />
-                    <Text style={styles.ingName}>{ing}</Text>
-                    <Text style={[styles.ingTag, ok && { color: colors.success }]}>{fridgeNames ? (ok ? "In fridge" : "Need") : ""}</Text>
-                  </View>
-                );
-              })}
-            </Card>
-          </View>
-
-          <View>
-            <Text style={[styles.section, styles.sectionRow]}>Steps</Text>
+            <Text variant="title" accessibilityRole="header" style={styles.sectionTitle}>
+              Method
+            </Text>
             <View style={styles.steps}>
               {recipe.steps.map((s, i) => (
                 <View key={i} style={styles.step}>
-                  <View style={styles.stepNum}>
-                    <Text style={styles.stepNumText}>{i + 1}</Text>
-                  </View>
-                  <Text style={styles.stepText}>{s}</Text>
+                  <Text style={styles.stepNum} maxFontSizeMultiplier={1.3}>
+                    {i + 1}
+                  </Text>
+                  <Text variant="body" style={styles.flex}>
+                    {s}
+                  </Text>
                 </View>
               ))}
             </View>
           </View>
-          {m ? <Text style={styles.disclaimer}>Nutrition is an estimate per serving.</Text> : null}
+          {m ? (
+            <Text variant="caption" tone="tertiary" center>
+              Per serving, estimated: {m.carbs} g carbs · {m.fat} g fat · {m.fiber} g fibre
+            </Text>
+          ) : null}
         </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-        <Button label="I cooked this" icon="checkmark-done" onPress={openSheet} />
+        <Button variant="hero" label="I cooked this" icon="checkmark-done" onPress={openSheet} />
       </View>
 
       <BottomSheet
@@ -202,10 +207,15 @@ export default function RecipeDetailScreen() {
         subtitle="We'll update your fridge and save this to History."
         footer={<Button label="Save & update fridge" onPress={() => void submit()} loading={saving} />}
       >
-        <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: spacing.md }}>
+        <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetList}>
           {recipe.ingredientsUsed.map((ing, i) => (
-            <View key={`${i}-${ing}`} style={{ gap: spacing.xs }}>
-              <Text style={styles.sheetIng}>{ing}</Text>
+            <View key={`${i}-${ing}`} style={styles.sheetItem}>
+              <View style={styles.sheetIngRow}>
+                <IconTile name={ing} size={28} />
+                <Text variant="bodyStrong" style={styles.ingName}>
+                  {ing}
+                </Text>
+              </View>
               <SegmentedControl options={USAGE} value={usage[i] ?? "didnt_use"} onChange={(v) => setUsage((u) => u.map((x, j) => (j === i ? v : x)))} />
             </View>
           ))}
@@ -216,34 +226,28 @@ export default function RecipeDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  scroll: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
-  inner: { width: "100%", maxWidth: 560, alignSelf: "center", gap: spacing.xl },
-  hero: { alignItems: "center", gap: spacing.xs, marginTop: -spacing.md },
-  heroThumb: { width: 88, height: 88, borderRadius: radius.xl, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center", marginBottom: spacing.xs },
-  heroEmoji: { fontSize: 46 },
-  title: { ...type.title1, color: colors.textPrimary, textAlign: "center" },
-  desc: { ...type.subhead, color: colors.textSecondary, textAlign: "center" },
-  pills: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: spacing.xxs },
-  macroRow: { flexDirection: "row", gap: spacing.xs },
-  macro: { flex: 1, alignItems: "center", paddingVertical: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  macroValue: { ...type.headline, fontWeight: "700", color: colors.textPrimary },
-  macroUnit: { ...type.caption, color: colors.textSecondary },
-  macroLabel: { ...type.caption, fontWeight: "500", color: colors.textTertiary, marginTop: 2 },
-  sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: spacing.sm },
-  section: { ...type.title3, color: colors.textPrimary },
-  sectionMeta: { ...type.footnote, color: colors.textSecondary },
-  ingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
-  ingName: { ...type.body, color: colors.textPrimary, flex: 1, textTransform: "capitalize" },
-  ingTag: { ...type.caption, color: colors.textTertiary },
-  steps: { gap: spacing.md },
-  step: { flexDirection: "row", gap: spacing.sm },
-  stepNum: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  stepNumText: { ...type.footnote, fontWeight: "700", color: colors.textOnPrimary },
-  stepText: { ...type.body, color: colors.textPrimary, flex: 1, paddingTop: 3 },
-  disclaimer: { ...type.caption, fontWeight: "400", color: colors.textTertiary, textAlign: "center" },
-  footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, backgroundColor: colors.background, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  root: { flex: 1, backgroundColor: colors.canvas },
+  missing: { paddingHorizontal: spacing.lg },
+  flex: { flex: 1 },
+  scroll: { paddingBottom: spacing.xl },
+  hero: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  back: { backgroundColor: "rgba(255,255,255,0.7)", marginLeft: -spacing.xxs },
+  heroSpacer: { flexGrow: 1, minHeight: spacing.xl },
+  title: { maxWidth: "88%" },
+  titleLong: { fontSize: 28, lineHeight: 32 },
+  inner: { width: "100%", maxWidth: 560, alignSelf: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.xl },
+  metaRow: { flexDirection: "row", gap: spacing.xs },
+  meta: { flex: 1, gap: 2 },
+  sectionTitle: { marginBottom: spacing.xs },
+  ingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 56, paddingVertical: spacing.xs },
+  hairline: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.lineStrong },
+  ingName: { flex: 1, textTransform: "capitalize" },
+  steps: { gap: spacing.lg, marginTop: spacing.xs },
+  step: { flexDirection: "row", gap: spacing.md, alignItems: "flex-start" },
+  stepNum: { fontFamily: fonts.display, fontSize: 32, lineHeight: 32, color: colors.tomato, minWidth: 28, fontVariant: ["tabular-nums"] },
+  footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, backgroundColor: colors.canvas, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.lineStrong },
   sheetScroll: { maxHeight: 420 },
-  sheetIng: { ...type.headline, color: colors.textPrimary, textTransform: "capitalize" },
+  sheetList: { gap: spacing.lg },
+  sheetItem: { gap: spacing.xs },
+  sheetIngRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
 });

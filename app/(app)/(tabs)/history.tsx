@@ -89,7 +89,6 @@ export default function HistoryScreen() {
                 key={e.id}
                 recipe={e.recipe_json}
                 onPress={() => openRecipe(router, e.recipe_json)}
-                footnote={`Cooked at ${new Date(e.created_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
               />
             ))}
           </View>

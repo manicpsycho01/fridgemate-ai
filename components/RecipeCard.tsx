@@ -1,71 +1,80 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { recipeEmoji } from "../lib/itemEmoji";
-import { colors, radius, shadows, spacing, type } from "../theme/tokens";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import type { ReactNode } from "react";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { CATEGORY, recipeVisual } from "../lib/foodIcon";
+import { colors, radius, shadow, spacing } from "../theme/tokens";
 import type { Recipe } from "../types";
+import { PressableScale } from "./ui/PressableScale";
+import { Text } from "./ui/Text";
 
-export function MetaPill({ icon, label }: { icon: "time-outline" | "speedometer-outline" | "flame-outline" | "barbell-outline"; label: string }) {
+/** "8 mins · Easy · 310 kcal" */
+export function recipeMeta(recipe: Pick<Recipe, "time" | "difficulty" | "macros">): string {
+  return [recipe.time, recipe.difficulty, recipe.macros ? `${recipe.macros.calories} kcal` : null].filter(Boolean).join("  ·  ");
+}
+
+/**
+ * Colour block drawn from the recipe's main ingredient category, with an oversized dish glyph as texture.
+ * Children (usually the Fraunces title) sit on top, bottom-left.
+ */
+export function RecipeBlock({ recipe, height, glyphSize, style, children }: { recipe: Recipe; height: number; glyphSize: number; style?: StyleProp<ViewStyle>; children?: ReactNode }) {
+  const { glyph, category } = recipeVisual(recipe);
+  const c = CATEGORY[category];
   return (
-    <View style={styles.pill}>
-      <Ionicons name={icon} size={13} color={colors.textSecondary} />
-      <Text style={styles.pillText}>{label}</Text>
-    </View>
+    <LinearGradient colors={c.block} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.block, { minHeight: height }, style]}>
+      <MaterialCommunityIcons name={glyph} size={glyphSize} color={c.ink} style={[styles.glyph, { right: -glyphSize * 0.14, top: -glyphSize * 0.1 }]} />
+      {children}
+    </LinearGradient>
   );
 }
 
-/** Tappable recipe summary card used by Cook and History. */
-export function RecipeCard({ recipe, onPress, footnote }: { recipe: Recipe; onPress: () => void; footnote?: string }) {
+/** Tappable recipe card for Cook: colour block + Fraunces title, quiet meta line, "Uses N of your items" pill. */
+export function RecipeCard({ recipe, onPress, uses }: { recipe: Recipe; onPress: () => void; uses?: number }) {
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
-      accessibilityLabel={`${recipe.title}, ${recipe.time}, ${recipe.difficulty}`}
+      accessibilityLabel={`${recipe.title}. ${recipeMeta(recipe)}${uses ? `. Uses ${uses} of your items` : ""}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={styles.card}
     >
-      <View style={styles.thumb}>
-        <Text style={styles.thumbEmoji}>{recipeEmoji(recipe.title)}</Text>
-      </View>
-      <View style={styles.body}>
-        <Text style={styles.title} numberOfLines={2}>
+      <View style={styles.clip}>
+      <RecipeBlock recipe={recipe} height={128} glyphSize={120}>
+        <Text variant="title" numberOfLines={2} style={styles.title}>
           {recipe.title}
         </Text>
+      </RecipeBlock>
+      <View style={styles.body}>
         {recipe.description ? (
-          <Text style={styles.desc} numberOfLines={2}>
+          <Text variant="callout" tone="secondary" numberOfLines={2}>
             {recipe.description}
           </Text>
         ) : null}
-        <View style={styles.meta}>
-          <MetaPill icon="time-outline" label={recipe.time} />
-          <MetaPill icon="speedometer-outline" label={recipe.difficulty} />
-          {recipe.macros ? <MetaPill icon="flame-outline" label={`${recipe.macros.calories} kcal`} /> : null}
+        <View style={styles.metaRow}>
+          <Text variant="caption" tone="secondary" numeric>
+            {recipeMeta(recipe)}
+          </Text>
+          {uses ? (
+            <View style={styles.uses}>
+              <Ionicons name="checkmark" size={13} color={colors.freshInk} />
+              <Text variant="caption" style={{ color: colors.freshInk }}>
+                Uses {uses} of your items
+              </Text>
+            </View>
+          ) : null}
         </View>
-        {footnote ? <Text style={styles.footnote}>{footnote}</Text> : null}
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} style={styles.chevron} />
-    </Pressable>
+      </View>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    ...shadows.card,
-  },
-  pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
-  thumb: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
-  thumbEmoji: { fontSize: 28 },
-  body: { flex: 1, minWidth: 0, gap: 4 },
-  title: { ...type.headline, fontSize: 17, color: colors.textPrimary },
-  desc: { ...type.footnote, color: colors.textSecondary },
-  meta: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
-  pill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.surfaceAlt, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 },
-  pillText: { ...type.caption, color: colors.textSecondary },
-  footnote: { ...type.caption, color: colors.textTertiary, marginTop: 2 },
-  chevron: { alignSelf: "center" },
+  card: { backgroundColor: colors.surface, borderRadius: radius.lg, ...shadow },
+  clip: { borderRadius: radius.lg, overflow: "hidden" },
+  block: { justifyContent: "flex-end", padding: spacing.md, overflow: "hidden" },
+  glyph: { position: "absolute", opacity: 0.22 },
+  title: { maxWidth: "82%" },
+  body: { padding: spacing.md, gap: spacing.sm },
+  metaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: spacing.xs },
+  uses: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.freshSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },
 });

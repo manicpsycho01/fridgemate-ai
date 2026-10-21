@@ -121,7 +121,7 @@ Implementation log for the Fresh Market redesign (branch `ios-sdk58`, local comm
 - [x] 3. Login / Sign up (AuthForm restyled only; logic untouched)
 - [x] 4. Home (`components/home/*`, `lib/displayName.ts`; shopping ticks are session-only UI)
 - [x] 5. Fridge (sticky search via `ScrollScreen sticky`, urgency sections, long-press / … menu, reanimated layout transitions)
-- [ ] 6. Cook + Recipe detail
+- [x] 6. Cook + Recipe detail (`RecipeCard`/`RecipeBlock` colour blocks, `components/cook/AiLabel` shimmer, removable chips, You have / You'll also need, sticky tomato I cooked this)
 - [ ] 7. Scan + Confirm
 - [ ] 8. History
 - [ ] 9. Settings
