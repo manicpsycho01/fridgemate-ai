@@ -1,16 +1,18 @@
 import { Link, useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, type TextInputInstance } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { sendPasswordReset } from "../../lib/account";
 import { friendlyAuthError, isValidEmail } from "../../lib/authErrors";
 import { success, warning } from "../../lib/haptics";
 import { useAuth } from "../../providers/AuthContext";
-import { colors, spacing, type } from "../../theme/tokens";
+import { colors, spacing } from "../../theme/tokens";
+import { AnimatedEntrance } from "../ui/AnimatedEntrance";
 import { Banner } from "../ui/Banner";
 import { Button } from "../ui/Button";
 import { FreoMascot } from "../ui/FreoMascot";
 import { IconButton } from "../ui/IconButton";
+import { Text } from "../ui/Text";
 import { TextField } from "../ui/TextField";
 
 type Mode = "login" | "signup";
@@ -127,13 +129,17 @@ export function AuthForm({ mode }: { mode: Mode }) {
             <IconButton icon="chevron-back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/(auth)/welcome"))} />
           </View>
 
-          <View style={styles.hero}>
-            <FreoMascot size={112} />
-            <Text style={styles.title} accessibilityRole="header">
-              {copy.title}
-            </Text>
-            <Text style={styles.subtitle}>{copy.subtitle}</Text>
-          </View>
+          <AnimatedEntrance style={styles.hero}>
+            <View style={styles.titles}>
+              <Text variant="display" accessibilityRole="header">
+                {copy.title}
+              </Text>
+              <Text variant="callout" tone="secondary">
+                {copy.subtitle}
+              </Text>
+            </View>
+            <FreoMascot size={116} float style={styles.freo} />
+          </AnimatedEntrance>
 
           {banner ? <Banner tone={banner.tone} message={banner.message} /> : null}
 
@@ -209,7 +215,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 hitSlop={8}
                 style={({ pressed }) => [styles.forgot, (pressed || resetting) && { opacity: 0.5 }]}
               >
-                <Text style={styles.link}>{resetting ? "Sending…" : "Forgot password?"}</Text>
+                <Text variant="calloutStrong" tone="herb">
+                  {resetting ? "Sending…" : "Forgot password?"}
+                </Text>
               </Pressable>
             )}
           </View>
@@ -217,14 +225,20 @@ export function AuthForm({ mode }: { mode: Mode }) {
           <Button label={copy.cta} onPress={() => void onSubmit()} loading={loading} disabled={!!configError} />
 
           {isSignup ? (
-            <Text style={styles.legal}>You can delete your account and data any time in Settings.</Text>
+            <Text variant="caption" tone="tertiary" center style={styles.legal}>
+              You can delete your account and data any time in Settings.
+            </Text>
           ) : null}
 
           <View style={styles.switchRow}>
-            <Text style={styles.switchText}>{copy.switchText}</Text>
+            <Text variant="callout" tone="secondary">
+              {copy.switchText}
+            </Text>
             <Link href={copy.switchHref} replace asChild>
-              <Pressable accessibilityRole="link" hitSlop={10}>
-                <Text style={styles.link}>{copy.switchLink}</Text>
+              <Pressable accessibilityRole="link" hitSlop={10} style={styles.switchLink}>
+                <Text variant="calloutStrong" tone="herb">
+                  {copy.switchLink}
+                </Text>
               </Pressable>
             </Link>
           </View>
@@ -235,17 +249,17 @@ export function AuthForm({ mode }: { mode: Mode }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: colors.canvas },
   scroll: { flexGrow: 1, paddingHorizontal: spacing.lg },
   inner: { width: "100%", maxWidth: 440, alignSelf: "center", gap: spacing.lg },
-  topBar: { flexDirection: "row", marginLeft: -spacing.xxs },
-  hero: { alignItems: "center", marginTop: -spacing.md },
-  title: { ...type.title1, color: colors.textPrimary, marginTop: spacing.xs, textAlign: "center" },
-  subtitle: { ...type.subhead, color: colors.textSecondary, marginTop: spacing.xxs, textAlign: "center" },
+  topBar: { flexDirection: "row", marginLeft: -spacing.xs },
+  hero: { flexDirection: "row", alignItems: "flex-end", marginTop: -spacing.xs },
+  titles: { flex: 1, gap: spacing.xs, paddingBottom: spacing.xs },
+  // Freo peeks in from the right edge of the screen.
+  freo: { marginRight: -spacing.xxl, transform: [{ rotate: "-8deg" }] },
   fields: { gap: spacing.md },
-  forgot: { alignSelf: "flex-end", minHeight: 32, justifyContent: "center", marginTop: -spacing.xxs },
-  link: { ...type.subhead, fontWeight: "600", color: colors.primary },
-  legal: { ...type.footnote, color: colors.textTertiary, textAlign: "center", marginTop: -spacing.xs },
-  switchRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, flexWrap: "wrap", minHeight: 44 },
-  switchText: { ...type.subhead, color: colors.textSecondary },
+  forgot: { alignSelf: "flex-end", minHeight: 44, justifyContent: "center", marginTop: -spacing.xs },
+  legal: { marginTop: -spacing.xs },
+  switchRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  switchLink: { minHeight: 44, justifyContent: "center" },
 });
