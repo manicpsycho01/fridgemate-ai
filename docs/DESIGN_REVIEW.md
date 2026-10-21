@@ -120,7 +120,7 @@ Implementation log for the Fresh Market redesign (branch `ios-sdk58`, local comm
 - [x] 2. Welcome (hero centred in free space, floating via `hooks/useFloat.ts`; unused landing icons deleted)
 - [x] 3. Login / Sign up (AuthForm restyled only; logic untouched)
 - [x] 4. Home (`components/home/*`, `lib/displayName.ts`; shopping ticks are session-only UI)
-- [ ] 5. Fridge
+- [x] 5. Fridge (sticky search via `ScrollScreen sticky`, urgency sections, long-press / … menu, reanimated layout transitions)
 - [ ] 6. Cook + Recipe detail
 - [ ] 7. Scan + Confirm
 - [ ] 8. History
