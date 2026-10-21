@@ -1,27 +1,41 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { RecipeCard } from "../../../components/RecipeCard";
+import { AppHeader } from "../../../components/ui/AppHeader";
+import { Banner } from "../../../components/ui/Banner";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { ScrollScreen } from "../../../components/ui/Screen";
-import { TabScreenHeader } from "../../../components/ui/TabScreenHeader";
+import { Skeleton } from "../../../components/ui/Skeleton";
+import { openRecipe } from "../../../lib/recipeRoute";
 import { getRecipeHistory } from "../../../lib/recipes";
-import { colors, spacing } from "../../../theme/tokens";
+import { colors, spacing, type } from "../../../theme/tokens";
 import type { RecipeHistoryEntry } from "../../../types";
+
+function dayLabel(iso: string, now = new Date()): string {
+  const d = new Date(iso);
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((startOf(now) - startOf(d)) / 86_400_000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  return d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}) });
+}
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<RecipeHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async () => {
     try {
       setEntries(await getRecipeHistory());
+      setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load history");
+      setError(e instanceof Error ? e.message : "Could not load your history.");
     } finally {
       setLoading(false);
     }
@@ -29,58 +43,63 @@ export default function HistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void refresh();
-    }, [refresh])
+      void load();
+    }, [load])
   );
 
-  return (
-    <ScrollScreen>
-      <TabScreenHeader title="Recipe history" subtitle="View meals you've cooked recently." />
+  const groups = useMemo(() => {
+    const out: { day: string; items: RecipeHistoryEntry[] }[] = [];
+    for (const e of entries) {
+      const day = dayLabel(e.created_at);
+      const last = out[out.length - 1];
+      if (last?.day === day) last.items.push(e);
+      else out.push({ day, items: [e] });
+    }
+    return out;
+  }, [entries]);
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+  return (
+    <ScrollScreen
+      refreshing={refreshing}
+      onRefresh={async () => {
+        setRefreshing(true);
+        await load();
+        setRefreshing(false);
+      }}
+    >
+      <AppHeader title="History" subtitle={entries.length ? `${entries.length} ${entries.length === 1 ? "meal" : "meals"} cooked` : "Meals you've cooked with FridgeMate AI."} />
+
+      {error ? <Banner message={error} action="Retry" onAction={() => void load()} /> : null}
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loading} />
+        <Card style={{ gap: spacing.sm }}>
+          <Skeleton width="60%" height={18} />
+          <Skeleton width="40%" height={12} />
+        </Card>
       ) : entries.length === 0 ? (
-        <View style={styles.listTop}>
-          <Card>
-            <Text style={styles.empty}>No cooked recipes yet. Cook one from the Cook tab.</Text>
-          </Card>
-        </View>
+        <EmptyState title="No meals yet" message="When you cook a recipe, tap “I cooked this” and it will show up here.">
+          <Button label="Find something to cook" icon="restaurant-outline" onPress={() => router.push("/(app)/(tabs)/cook")} />
+        </EmptyState>
       ) : (
-        <View style={styles.list}>
-          {entries.map((entry) => (
-            <Card key={entry.id}>
-              <Text style={styles.recipeTitle}>{entry.recipe_json.title}</Text>
-              <Text style={styles.meta}>
-                {entry.recipe_json.time} · {entry.recipe_json.difficulty}
-              </Text>
-              <Text style={styles.meta}>{new Date(entry.created_at).toLocaleString()}</Text>
-              <View style={{ marginTop: 10 }}>
-                <Button
-                  label="View Recipe"
-                  variant="secondary"
-                  onPress={() => {
-                    const payload = encodeURIComponent(JSON.stringify(entry.recipe_json));
-                    router.push(`/(app)/recipe-detail?recipe=${payload}`);
-                  }}
-                />
-              </View>
-            </Card>
-          ))}
-        </View>
+        groups.map((g) => (
+          <View key={g.day} style={styles.group}>
+            <Text style={styles.day}>{g.day}</Text>
+            {g.items.map((e) => (
+              <RecipeCard
+                key={e.id}
+                recipe={e.recipe_json}
+                onPress={() => openRecipe(router, e.recipe_json)}
+                footnote={`Cooked at ${new Date(e.created_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
+              />
+            ))}
+          </View>
+        ))
       )}
     </ScrollScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  /** Extra air below header / mascot so the first card does not crowd the top bar */
-  list: { gap: spacing.lg, marginTop: spacing.xl },
-  listTop: { marginTop: spacing.xl },
-  empty: { color: colors.textSecondary, lineHeight: 21 },
-  loading: { marginTop: spacing.xl },
-  error: { marginTop: spacing.sm, color: colors.error },
-  recipeTitle: { fontSize: 18, fontWeight: "700", color: colors.textPrimary },
-  meta: { marginTop: 4, color: colors.textSecondary },
+  group: { gap: spacing.sm },
+  day: { ...type.footnote, fontWeight: "700", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.5 },
 });

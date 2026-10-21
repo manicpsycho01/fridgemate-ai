@@ -1,88 +1,85 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
-import { StyleSheet, View } from "react-native";
-import { colors, shadows, spacing } from "../../../theme/tokens";
+import { LinearGradient } from "expo-linear-gradient";
+import { Tabs, type BottomTabBarButtonProps } from "expo-router/js-tabs";
+import type { ComponentProps } from "react";
+import { Pressable, StyleSheet, Text, View, type ColorValue } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { tap } from "../../../lib/haptics";
+import { colors, gradient, shadows } from "../../../theme/tokens";
+
+type IconName = ComponentProps<typeof Ionicons>["name"];
+
+function tabIcon(outline: IconName, filled: IconName) {
+  return ({ color, focused }: { color: ColorValue; focused: boolean }) => <Ionicons name={focused ? filled : outline} size={24} color={String(color)} />;
+}
+
+/** Raised, centered Scan action. */
+function ScanTabButton({ onPress, accessibilityState }: BottomTabBarButtonProps) {
+  const focused = !!accessibilityState?.selected;
+  return (
+    <View style={styles.scanSlot}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Scan your fridge"
+        accessibilityState={{ selected: focused }}
+        onPress={(e) => {
+          tap();
+          onPress?.(e);
+        }}
+        style={({ pressed }) => [styles.scanPress, pressed && { transform: [{ scale: 0.94 }] }]}
+      >
+        <LinearGradient colors={gradient.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.scanCircle}>
+          <Ionicons name="scan" size={26} color={colors.textOnPrimary} />
+        </LinearGradient>
+        <Text style={[styles.scanLabel, focused && { color: colors.primary }]}>Scan</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const bottom = Math.max(insets.bottom, 8);
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
+        sceneStyle: { backgroundColor: colors.background },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textTertiary,
+        tabBarLabelStyle: { fontSize: 11, lineHeight: 13, fontWeight: "600" },
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 78,
-          paddingBottom: spacing.md,
-          paddingTop: spacing.xs,
-          shadowColor: "#14326b",
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: -2 },
-          elevation: 8,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          elevation: 0,
+          height: 54 + bottom,
+          paddingTop: 6,
+          paddingBottom: bottom,
         },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarLabelStyle: { fontSize: 11, marginTop: 2, fontWeight: "600" },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{ title: "Home", tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={String(color)} size={size} /> }}
-      />
-      <Tabs.Screen
-        name="inventory"
-        options={{
-          title: "Inventory",
-          headerTitleAlign: "center",
-          tabBarIcon: ({ color, size }) => <Ionicons name="basket-outline" color={String(color)} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="scan"
-        options={{
-          title: "Scan",
-          tabBarLabel: "",
-          tabBarIcon: ({ focused }) => (
-            <View style={[styles.scanPill, focused && styles.scanPillFocused]}>
-              <Ionicons name="camera-outline" color={colors.textOnPrimary} size={24} />
-            </View>
-          ),
-          tabBarItemStyle: styles.scanButton,
-        }}
-      />
-      <Tabs.Screen
-        name="cook"
-        options={{
-          title: "Cook",
-          headerTitle: "Cook with ingredients",
-          tabBarIcon: ({ color, size }) => <Ionicons name="restaurant-outline" color={String(color)} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="history"
-        options={{ title: "History", tabBarIcon: ({ color, size }) => <Ionicons name="time-outline" color={String(color)} size={size} /> }}
-      />
+      <Tabs.Screen name="index" options={{ title: "Home", tabBarIcon: tabIcon("home-outline", "home") }} />
+      <Tabs.Screen name="inventory" options={{ title: "Fridge", tabBarIcon: tabIcon("file-tray-stacked-outline", "file-tray-stacked") }} />
+      <Tabs.Screen name="scan" options={{ title: "Scan", tabBarButton: (props) => <ScanTabButton {...props} /> }} />
+      <Tabs.Screen name="cook" options={{ title: "Cook", tabBarIcon: tabIcon("restaurant-outline", "restaurant") }} />
+      <Tabs.Screen name="history" options={{ title: "History", tabBarIcon: tabIcon("time-outline", "time") }} />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  scanButton: {
-    top: -16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  scanPill: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: colors.primary,
+  scanSlot: { flex: 1, alignItems: "center" },
+  scanPress: { alignItems: "center", marginTop: -20 },
+  scanCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: "center",
     justifyContent: "center",
-    ...shadows.bubble,
+    borderWidth: 3,
+    borderColor: colors.surface,
+    ...shadows.raised,
   },
-  scanPillFocused: {
-    backgroundColor: colors.primaryDark,
-  },
+  scanLabel: { fontSize: 11, lineHeight: 13, fontWeight: "600", color: colors.textTertiary, marginTop: 1 },
 });

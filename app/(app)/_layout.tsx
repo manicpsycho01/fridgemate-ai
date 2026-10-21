@@ -19,14 +19,11 @@ export default function AppLayout() {
   if (!session) return <Redirect href="/(auth)/welcome" />;
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="confirm-items" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="recipe-detail" options={{ headerShown: false }} />
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="confirm-items" options={{ presentation: "modal" }} />
+      <Stack.Screen name="recipe-detail" />
+      <Stack.Screen name="settings" />
     </Stack>
   );
 }

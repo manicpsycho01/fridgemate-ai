@@ -1,52 +1,60 @@
-import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, radius, spacing } from "../../theme/tokens";
+import { Ionicons } from "@expo/vector-icons";
+import { Pressable, StyleSheet, Text } from "react-native";
+import { select } from "../../lib/haptics";
+import { colors, radius, spacing, type } from "../../theme/tokens";
+
+export type ChipTone = "default" | "danger" | "warning";
 
 type Props = {
   label: string;
+  onPress?: () => void;
   selected?: boolean;
+  tone?: ChipTone;
+  leading?: string;
+  trailingIcon?: "add" | "checkmark";
   disabled?: boolean;
-  onPress: () => void;
-  /** Small checkmark when selected (inventory-style). */
-  showCheckWhenSelected?: boolean;
 };
 
-export function Chip({ label, selected = false, disabled = false, onPress, showCheckWhenSelected = false }: Props) {
+const TONES: Record<ChipTone, { bg: string; fg: string; border: string }> = {
+  default: { bg: colors.surface, fg: colors.textPrimary, border: colors.border },
+  danger: { bg: colors.dangerSoft, fg: colors.danger, border: "#f8d1ce" },
+  warning: { bg: colors.warningSoft, fg: colors.warning, border: "#fde3b0" },
+};
+
+export function Chip({ label, onPress, selected = false, tone = "default", leading, trailingIcon, disabled }: Props) {
+  const t = selected ? { bg: colors.primarySoft, fg: colors.primaryDeep, border: colors.primary } : TONES[tone];
+  const icon = selected && !trailingIcon ? "checkmark" : trailingIcon;
   return (
     <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.base,
-        selected ? styles.selected : styles.unselected,
-        disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
-      ]}
+      accessibilityRole={onPress ? "button" : "text"}
+      accessibilityState={onPress ? { selected, disabled } : undefined}
+      disabled={disabled || !onPress}
+      onPress={() => {
+        select();
+        onPress?.();
+      }}
+      style={({ pressed }) => [styles.base, { backgroundColor: t.bg, borderColor: t.border }, disabled && { opacity: 0.5 }, pressed && { opacity: 0.7 }]}
     >
-      <View style={styles.row}>
-        <Text style={[styles.text, selected ? styles.textSelected : styles.textUnselected]}>{label}</Text>
-        {selected && showCheckWhenSelected ? <Text style={styles.check}>✓</Text> : null}
-      </View>
+      {leading ? <Text style={styles.leading}>{leading}</Text> : null}
+      <Text style={[styles.text, { color: t.fg }]} numberOfLines={1}>
+        {label}
+      </Text>
+      {icon ? <Ionicons name={icon} size={15} color={t.fg} /> : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm - 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minHeight: 38,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
     borderRadius: radius.pill,
     borderWidth: 1,
-    minHeight: 36,
-    justifyContent: "center",
   },
-  row: { flexDirection: "row", alignItems: "center", gap: 6 },
-  selected: { backgroundColor: colors.chipActive, borderColor: colors.primary },
-  unselected: { backgroundColor: colors.surface, borderColor: colors.border },
-  disabled: { opacity: 0.55 },
-  pressed: { opacity: 0.88 },
-  text: { fontWeight: "600", fontSize: 14 },
-  textSelected: { color: colors.textPrimary },
-  textUnselected: { color: colors.textSecondary },
-  check: { fontSize: 12, color: colors.success, fontWeight: "800" },
+  leading: { fontSize: 15 },
+  text: { ...type.subhead, fontWeight: "600", maxWidth: 220 },
 });

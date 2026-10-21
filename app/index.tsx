@@ -1,24 +1,19 @@
 import { Redirect } from "expo-router";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { FreoMascot } from "../components/ui/FreoMascot";
+import { Wordmark } from "../components/ui/Wordmark";
 import { useAuth } from "../providers/AuthContext";
-import { colors } from "../theme/tokens";
+import { colors, spacing, type } from "../theme/tokens";
 
 export default function Index() {
   const { session, loading, configError } = useAuth();
 
-  if (configError) {
+  if (configError || loading) {
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>FridgeMate AI</Text>
-        <Text style={styles.error}>{configError}</Text>
-      </View>
-    );
-  }
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <FreoMascot size={120} />
+        <Wordmark size={24} />
+        {configError ? <Text style={styles.error}>{configError}</Text> : <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.md }} />}
       </View>
     );
   }
@@ -27,7 +22,6 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: colors.background },
-  title: { fontSize: 22, fontWeight: "700", marginBottom: 12, color: colors.textPrimary },
-  error: { textAlign: "center", color: colors.error, fontSize: 15, lineHeight: 22 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: spacing.xs, padding: spacing.xl, backgroundColor: colors.background },
+  error: { ...type.subhead, textAlign: "center", color: colors.danger, marginTop: spacing.md },
 });

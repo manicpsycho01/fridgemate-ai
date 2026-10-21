@@ -3,7 +3,7 @@ import { ingredientMatchesAny, normalizeItemName } from "./ingredientMatch";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
 /** Full catalog; `getMockRecipes` only returns recipes whose every ingredient exists in the user's set (fridge + counter session). */
-export const ALL_MOCK_RECIPES: Recipe[] = [
+const ALL_MOCK_RECIPES: Recipe[] = [
   {
     title: "Cheesy Tomato Eggs",
     time: "8 mins",

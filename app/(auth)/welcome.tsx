@@ -1,119 +1,68 @@
 import { useRouter } from "expo-router";
-import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "../../components/ui/Button";
-import { colors, radius, shadows, spacing } from "../../theme/tokens";
+import { Wordmark } from "../../components/ui/Wordmark";
+import { colors, radius, spacing, type } from "../../theme/tokens";
 
-const ICON_FRIDGE = require("../../assets/landing/icon-fridge.png");
-const ICON_LEAF = require("../../assets/landing/icon-leaf.png");
-const ICON_CHEF = require("../../assets/landing/icon-chef.png");
-const HERO_MASCOT = require("../../assets/landing/hero-mascot.png");
+const HERO = require("../../assets/landing/hero-mascot.png");
+// Note: the landing icon file names are mislabelled — each constant names what the image actually shows.
+const IMG_FRIDGE = require("../../assets/landing/icon-chef.png");
+const IMG_LEAF = require("../../assets/landing/icon-fridge.png");
+const IMG_CHEF = require("../../assets/landing/icon-leaf.png");
 
-type FeatureRowProps = {
-  icon: ReturnType<typeof require>;
-  title: string;
-  subtitle: string;
-};
-
-function FeatureRow({ icon, title, subtitle }: FeatureRowProps) {
-  return (
-    <View style={featureStyles.row}>
-      <Image source={icon} style={featureStyles.icon} resizeMode="contain" />
-      <View style={featureStyles.text}>
-        <Text style={featureStyles.title}>{title}</Text>
-        <Text style={featureStyles.sub}>{subtitle}</Text>
-      </View>
-    </View>
-  );
-}
-
-const featureStyles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.soft,
-  },
-  icon: {
-    width: 64,
-    height: 64,
-  },
-  text: {
-    flex: 1,
-    gap: 3,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    letterSpacing: 0.1,
-  },
-  sub: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: "500",
-    lineHeight: 18,
-  },
-});
+const BENEFITS = [
+  { icon: IMG_FRIDGE, title: "Know what's in your fridge", body: "Snap a photo and AI lists your groceries." },
+  { icon: IMG_LEAF, title: "Waste less, save more", body: "See what to use first before it goes off." },
+  { icon: IMG_CHEF, title: "Recipes from what you have", body: "Fresh AI ideas built around your fridge." },
+];
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  // The hero art has generous transparent padding; crop it with negative margins.
+  const heroSize = Math.min(width - spacing.lg * 2, 420, height * 0.42);
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg }]}>
+    <View style={styles.root}>
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.md }]}
         showsVerticalScrollIndicator={false}
-        bounces={false}
       >
-        {/* Brand header */}
-        <View style={styles.brand}>
-          <Text style={styles.logo}>Freo</Text>
-          <Text style={styles.tagline}>Your smart fridge companion.</Text>
-        </View>
+        <View style={styles.inner}>
+          <View style={{ height: heroSize * 0.74, alignItems: "center", overflow: "hidden" }}>
+            <Image
+              source={HERO}
+              style={{ width: heroSize, height: heroSize, marginTop: -heroSize * 0.12 }}
+              resizeMode="contain"
+              accessibilityLabel="Freo the fridge mascot with groceries"
+            />
+          </View>
 
-        {/* Feature rows */}
-        <View style={styles.features}>
-          <FeatureRow
-            icon={ICON_FRIDGE}
-            title="Track your fridge items"
-            subtitle="Always know what's inside without opening the door."
-          />
-          <FeatureRow
-            icon={ICON_LEAF}
-            title="Reduce waste, save money"
-            subtitle="Use up ingredients before they expire."
-          />
-          <FeatureRow
-            icon={ICON_CHEF}
-            title="Get recipe ideas instantly"
-            subtitle="AI-powered suggestions based on what you have."
-          />
-        </View>
+          <View style={styles.brand}>
+            <Wordmark size={34} />
+            <Text style={styles.tagline}>Your AI kitchen assistant. Track your fridge, waste less and cook something great tonight.</Text>
+          </View>
 
-        {/* Hero mascot */}
-        <View style={styles.heroCard}>
-          <Image source={HERO_MASCOT} style={styles.heroImage} resizeMode="contain" />
-        </View>
+          <View style={styles.benefits}>
+            {BENEFITS.map((b) => (
+              <View key={b.title} style={styles.benefit}>
+                <Image source={b.icon} style={styles.benefitIcon} resizeMode="contain" accessible={false} />
+                <View style={styles.benefitText}>
+                  <Text style={styles.benefitTitle}>{b.title}</Text>
+                  <Text style={styles.benefitBody}>{b.body}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
 
-        {/* Action buttons */}
-        <View style={styles.footer}>
-          <Button
-            label="Get Started"
-            onPress={() => router.replace("/(auth)/login")}
-          />
-          <View style={{ height: spacing.sm }} />
-          <Button
-            label="I already have an account"
-            variant="ghost"
-            onPress={() => router.replace("/(auth)/login")}
-          />
+          <View style={styles.spacer} />
+
+          <View style={styles.actions}>
+            <Button label="Get started" onPress={() => router.push("/(auth)/signup")} />
+            <Button label="I already have an account" variant="ghost" onPress={() => router.push("/(auth)/login")} />
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -121,47 +70,24 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.lg,
+  root: { flex: 1, backgroundColor: colors.background },
+  scroll: { flexGrow: 1, paddingHorizontal: spacing.lg },
+  inner: { flexGrow: 1, width: "100%", maxWidth: 480, alignSelf: "center" },
+  brand: { alignItems: "center", gap: spacing.xs, marginTop: spacing.xs },
+  tagline: { ...type.subhead, color: colors.textSecondary, textAlign: "center", maxWidth: 330 },
+  benefits: {
+    marginTop: spacing.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingVertical: spacing.xxs,
   },
-  scroll: {
-    flexGrow: 1,
-    gap: spacing.xl,
-  },
-  brand: {
-    gap: spacing.xs,
-    paddingTop: spacing.sm,
-  },
-  logo: {
-    fontSize: 52,
-    fontWeight: "900",
-    color: colors.primary,
-    letterSpacing: -1.5,
-    lineHeight: 58,
-  },
-  tagline: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    lineHeight: 30,
-    letterSpacing: 0.1,
-  },
-  features: {
-    gap: spacing.md,
-  },
-  heroCard: {
-    width: "100%",
-    aspectRatio: 1,
-    alignSelf: "center",
-  },
-  heroImage: {
-    width: "100%",
-    height: "100%",
-  },
-  footer: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
+  benefit: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  benefitIcon: { width: 48, height: 48 },
+  benefitText: { flex: 1, gap: 2 },
+  benefitTitle: { ...type.headline, color: colors.textPrimary },
+  benefitBody: { ...type.footnote, color: colors.textSecondary },
+  spacer: { flexGrow: 1, minHeight: spacing.xl },
+  actions: { gap: spacing.xxs },
 });

@@ -1,313 +1,298 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState, type ComponentProps } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Banner } from "../../../components/ui/Banner";
+import { BottomSheet } from "../../../components/ui/BottomSheet";
+import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Chip } from "../../../components/ui/Chip";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { FreoMascot } from "../../../components/ui/FreoMascot";
+import { freshnessLabel } from "../../../components/ui/FreshnessBadge";
+import { IconButton } from "../../../components/ui/IconButton";
 import { ScrollScreen } from "../../../components/ui/Screen";
+import { SectionHeader } from "../../../components/ui/SectionHeader";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { SAMPLE_FRIDGE_ITEMS } from "../../../constants/chips";
 import { ESSENTIAL_MIN_QTY, ESSENTIAL_OPTIONS } from "../../../constants/essentials";
+import { useInventory } from "../../../hooks/useInventory";
 import { getUserEssentials, setUserEssentials } from "../../../lib/essentials";
+import { useFirst } from "../../../lib/freshness";
+import { success } from "../../../lib/haptics";
 import { ingredientMatchesItem } from "../../../lib/ingredientMatch";
-import { addManyInventoryItems, getInventory, stockCountContribution } from "../../../lib/inventory";
+import { addManyInventoryItems, stockCountContribution } from "../../../lib/inventory";
+import { itemEmoji } from "../../../lib/itemEmoji";
+import { openCookWith } from "../../../lib/recipeRoute";
 import { useAuth } from "../../../providers/AuthContext";
-import { colors, spacing } from "../../../theme/tokens";
-import type { InventoryItem } from "../../../types";
+import { colors, gradient, radius, shadows, spacing, type } from "../../../theme/tokens";
+
+function greeting(now = new Date()): string {
+  const h = now.getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
+
+/** "jane.doe@x.com" → "Jane" */
+export function displayNameFromEmail(email?: string | null): string {
+  const local = email?.split("@")[0]?.split(/[._+\-\d]/).find(Boolean) ?? "";
+  return local ? local.charAt(0).toUpperCase() + local.slice(1).toLowerCase() : "there";
+}
+
+type QuickAction = { label: string; icon: ComponentProps<typeof Ionicons>["name"]; onPress: () => void };
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { signOut, user } = useAuth();
-  const [items, setItems] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { items, loading, refreshing, error, setError, reload, refresh } = useInventory();
   const [essentials, setEssentials] = useState<string[]>([]);
-  const [draftEssentials, setDraftEssentials] = useState<Set<string>>(new Set());
-  const [showEssentialsModal, setShowEssentialsModal] = useState(false);
-
-  const displayName = useMemo(() => {
-    const e = user?.email?.split("@")[0]?.trim();
-    return e && e.length > 0 ? e : "there";
-  }, [user?.email]);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const nextItems = await getInventory();
-      setItems(nextItems);
-      if (user?.id) {
-        const selectedEssentials = await getUserEssentials(user.id);
-        setEssentials(selectedEssentials);
-        if (selectedEssentials.length === 0) {
-          setDraftEssentials(new Set(ESSENTIAL_OPTIONS.slice(0, 4)));
-          setShowEssentialsModal(true);
-        }
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load inventory");
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
+  const [draft, setDraft] = useState<Set<string>>(new Set());
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [addingSample, setAddingSample] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
-      void refresh();
-    }, [refresh])
+      if (user?.id) void getUserEssentials(user.id).then(setEssentials);
+    }, [user?.id])
   );
 
-  async function onSampleFridge() {
-    setBusy(true);
-    setError(null);
-    try {
-      await addManyInventoryItems(SAMPLE_FRIDGE_ITEMS, "sample_fridge");
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not add sample items");
-    } finally {
-      setBusy(false);
-    }
+  const urgent = useMemo(() => useFirst(items), [items]);
+  const shopping = useMemo(
+    () =>
+      essentials
+        .map((name) => {
+          const have = items.filter((i) => ingredientMatchesItem(name, i.name)).reduce((s, i) => s + stockCountContribution(i), 0);
+          return { name, have, needed: Math.max(0, ESSENTIAL_MIN_QTY - have) };
+        })
+        .filter((x) => x.needed > 0),
+    [essentials, items]
+  );
+
+  const quickActions: QuickAction[] = [
+    { label: "Scan fridge", icon: "scan-outline", onPress: () => router.push("/(app)/(tabs)/scan") },
+    { label: "Add item", icon: "add-circle-outline", onPress: () => router.push({ pathname: "/(app)/(tabs)/inventory", params: { add: "1" } }) },
+    { label: "Get recipes", icon: "sparkles-outline", onPress: () => router.push("/(app)/(tabs)/cook") },
+  ];
+
+  function openEssentials() {
+    setDraft(new Set(essentials.length ? essentials : ESSENTIAL_OPTIONS.slice(0, 4)));
+    setSheetOpen(true);
   }
 
-  function promptSampleFridge() {
-    Alert.alert(
-      "Add demo fridge items?",
-      "Hidden shortcut for testing when your fridge is empty.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Add demo", onPress: () => void onSampleFridge() },
-      ]
-    );
-  }
-
-  async function onLogout() {
-    await signOut();
-    router.replace("/(auth)/login");
-  }
-
-  function toggleEssential(name: string) {
-    setDraftEssentials((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }
-
-  async function saveEssentialsSelection() {
-    if (!user?.id) return;
-    const picked = Array.from(draftEssentials);
-    if (picked.length === 0) {
-      Alert.alert("Select essentials", "Pick at least one essential item.");
-      return;
-    }
+  async function saveEssentials() {
+    if (!user?.id || draft.size === 0) return;
+    const picked = ESSENTIAL_OPTIONS.filter((e) => draft.has(e));
     await setUserEssentials(user.id, picked);
     setEssentials(picked);
-    setShowEssentialsModal(false);
+    setSheetOpen(false);
+    success();
   }
 
-  const smartShoppingList = useMemo(() => {
-    return essentials
-      .map((name) => {
-        const currentQty = items
-          .filter((i) => ingredientMatchesItem(name, i.name))
-          .reduce((sum, i) => sum + stockCountContribution(i), 0);
-        const needed = Math.max(0, ESSENTIAL_MIN_QTY - currentQty);
-        return { name, currentQty, needed };
-      })
-      .filter((x) => x.needed > 0);
-  }, [essentials, items]);
+  async function addSampleItems() {
+    setAddingSample(true);
+    try {
+      await addManyInventoryItems(SAMPLE_FRIDGE_ITEMS, "sample_fridge");
+      success();
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not add sample items.");
+    } finally {
+      setAddingSample(false);
+    }
+  }
+
+  const name = displayNameFromEmail(user?.email);
+  const empty = !loading && items.length === 0;
 
   return (
-    <ScrollScreen>
-      <View style={[styles.heroWrap, { marginHorizontal: -spacing.lg, marginTop: -spacing.lg, paddingTop: spacing.md }]}>
-        <View style={styles.heroRow}>
-          <View style={styles.heroTextLeft}>
-            <Text style={styles.heroName} numberOfLines={1} ellipsizeMode="tail">
-              Hello, {displayName}! 👋
-            </Text>
-            <Text style={styles.heroGreet} numberOfLines={2}>
-              Here's what's in your fridge today.
-            </Text>
-          </View>
-          <Pressable onPress={() => void onLogout()} style={styles.iconBtn} accessibilityLabel="Log out">
-            <Ionicons name="log-out-outline" size={18} color={colors.primaryDark} />
-          </Pressable>
+    <ScrollScreen refreshing={refreshing} onRefresh={() => void refresh()}>
+      <View style={styles.header}>
+        <View style={styles.headerText}>
+          <Text style={styles.eyebrow}>{greeting()}</Text>
+          <Text style={styles.hello} numberOfLines={1} accessibilityRole="header">
+            Hi, {name}
+          </Text>
         </View>
+        <IconButton icon="settings-outline" label="Settings" onPress={() => router.push("/(app)/settings")} />
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityHint="Long press for a hidden demo shortcut"
-        onLongPress={() => promptSampleFridge()}
-        delayLongPress={700}
-        style={styles.summaryPress}
-      >
-        <View style={styles.glanceCard}>
-          <View style={styles.glanceCardRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.summaryTitle}>Your fridge at a glance</Text>
-              <View style={styles.countInline}>
-                <Text style={styles.summaryCountNum}>{loading ? "..." : items.length}</Text>
-                <Text style={styles.summaryCountLbl}>items</Text>
-              </View>
-              <Text style={styles.summaryHint}>Last updated: just now</Text>
-            </View>
-            <View style={styles.freoCardWrap}>
-              <FreoMascot size={94} />
-            </View>
-          </View>
+      <LinearGradient colors={gradient.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.summary}>
+        <View style={styles.summaryText}>
+          <Text style={styles.summaryEyebrow}>Your fridge</Text>
+          {loading ? (
+            <Text style={styles.summaryCount}>—</Text>
+          ) : (
+            <Text style={styles.summaryCount}>
+              {items.length} <Text style={styles.summaryUnit}>{items.length === 1 ? "item" : "items"}</Text>
+            </Text>
+          )}
+          <Text style={styles.summaryNote}>
+            {loading ? "Checking your shelves…" : empty ? "Let's stock it up." : urgent.length ? `${urgent.length} to use soon` : "Everything looks fresh"}
+          </Text>
         </View>
-      </Pressable>
+        <FreoMascot size={104} style={styles.summaryFreo} />
+      </LinearGradient>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {busy ? <Text style={styles.busy}>Adding demo items…</Text> : null}
+      {error ? <Banner message={error} action="Retry" onAction={() => void reload()} /> : null}
 
-      <Card>
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>Smart Shopping List</Text>
-          <Pressable onPress={() => setShowEssentialsModal(true)}>
-            <Text style={styles.sectionAction}>Edit essentials</Text>
-          </Pressable>
-        </View>
-        {essentials.length === 0 ? (
-          <Text style={styles.emptyText}>Pick essential items to generate your smart list.</Text>
-        ) : smartShoppingList.length === 0 ? (
-          <Text style={styles.emptyText}>All selected essentials are sufficiently stocked.</Text>
-        ) : (
-          <ScrollView
-            style={styles.listScroll}
-            contentContainerStyle={styles.listScrollContent}
-            nestedScrollEnabled
-            showsVerticalScrollIndicator={false}
+      <View style={styles.quickRow}>
+        {quickActions.map((a) => (
+          <Pressable
+            key={a.label}
+            accessibilityRole="button"
+            accessibilityLabel={a.label}
+            onPress={a.onPress}
+            style={({ pressed }) => [styles.quick, pressed && styles.quickPressed]}
           >
-            {smartShoppingList.map((it) => (
-              <View key={it.name} style={styles.shopRow}>
-                <View>
-                  <Text style={styles.shopName}>{it.name}</Text>
-                  <Text style={styles.shopMeta}>Current: {it.currentQty}</Text>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-        )}
-      </Card>
+            <View style={styles.quickIcon}>
+              <Ionicons name={a.icon} size={22} color={colors.primary} />
+            </View>
+            <Text style={styles.quickLabel} numberOfLines={2}>
+              {a.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
-      <Modal visible={showEssentialsModal} transparent animationType="fade" onRequestClose={() => setShowEssentialsModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Choose your essential items</Text>
-            <Text style={styles.modalSub}>These are used to create your smart shopping list.</Text>
-            <ScrollView style={{ maxHeight: 280 }} contentContainerStyle={styles.modalChips}>
-              {ESSENTIAL_OPTIONS.map((name) => (
-                <Chip key={name} label={name} selected={draftEssentials.has(name)} onPress={() => toggleEssential(name)} />
+      {loading ? (
+        <View style={{ gap: spacing.sm }}>
+          <Skeleton width={120} height={20} />
+          <Skeleton height={44} rounded={radius.pill} />
+        </View>
+      ) : empty ? (
+        <Card>
+          <EmptyState title="Your fridge is empty" message="Snap a photo of your fridge and Freo will list what's inside, or add items yourself." mascotSize={96}>
+            <Button label="Scan my fridge" icon="scan-outline" onPress={() => router.push("/(app)/(tabs)/scan")} />
+            <Button label={addingSample ? "Adding…" : "Try with sample items"} variant="ghost" loading={addingSample} onPress={() => void addSampleItems()} />
+          </EmptyState>
+        </Card>
+      ) : (
+        <View>
+          <SectionHeader title="Use first" action={urgent.length ? "Cook with these" : undefined} onAction={() => openCookWith(router, urgent.map((u) => u.name))} />
+          {urgent.length === 0 ? (
+            <Card style={styles.allFresh}>
+              <Ionicons name="leaf" size={20} color={colors.success} />
+              <Text style={styles.allFreshText}>Nothing is close to its best-by estimate. Nice!</Text>
+            </Card>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipScroll}>
+              {urgent.map((u) => (
+                <Chip
+                  key={u.id}
+                  leading={itemEmoji(u.name)}
+                  label={`${u.name} · ${freshnessLabel(u)}`}
+                  tone={u.status === "expired" ? "danger" : "warning"}
+                  onPress={() => openCookWith(router, [u.name])}
+                />
               ))}
             </ScrollView>
-            <View style={styles.modalBtns}>
-              <Pressable style={styles.btnGhost} onPress={() => setShowEssentialsModal(false)}>
-                <Text style={styles.btnGhostTxt}>Close</Text>
-              </Pressable>
-              <Pressable style={styles.btnPrimary} onPress={() => void saveEssentialsSelection()}>
-                <Text style={styles.btnPrimaryTxt}>Save</Text>
-              </Pressable>
-            </View>
-          </View>
+          )}
         </View>
-      </Modal>
+      )}
+
+      {!loading ? (
+        <View>
+          <SectionHeader title="Shopping list" action={essentials.length ? "Edit" : undefined} onAction={openEssentials} />
+          <Card padded={false}>
+            {essentials.length === 0 ? (
+              <View style={styles.shopEmpty}>
+                <Text style={styles.muted}>Pick the staples you always want at home and we'll remind you when they run low.</Text>
+                <Button label="Choose essentials" variant="secondary" size="md" icon="list-outline" onPress={openEssentials} />
+              </View>
+            ) : shopping.length === 0 ? (
+              <View style={styles.shopRow}>
+                <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+                <Text style={styles.shopName}>All your essentials are stocked</Text>
+              </View>
+            ) : (
+              shopping.map((s, i) => (
+                <View key={s.name} style={[styles.shopRow, i > 0 && styles.divider]}>
+                  <Text style={styles.shopEmoji}>{itemEmoji(s.name)}</Text>
+                  <Text style={styles.shopName}>{s.name}</Text>
+                  <Text style={styles.shopMeta}>{s.have === 0 ? "Out" : `${s.have} left`}</Text>
+                </View>
+              ))
+            )}
+          </Card>
+        </View>
+      ) : null}
+
+      <BottomSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title="Your essentials"
+        subtitle="We'll add these to your shopping list when you have fewer than 2."
+        footer={<Button label="Save essentials" onPress={() => void saveEssentials()} disabled={draft.size === 0} />}
+      >
+        <View style={styles.sheetChips}>
+          {ESSENTIAL_OPTIONS.map((e) => (
+            <Chip
+              key={e}
+              leading={itemEmoji(e)}
+              label={e}
+              selected={draft.has(e)}
+              onPress={() =>
+                setDraft((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(e)) next.delete(e);
+                  else next.add(e);
+                  return next;
+                })
+              }
+            />
+          ))}
+        </View>
+      </BottomSheet>
     </ScrollScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  heroWrap: {
-    marginBottom: spacing.sm,
-    backgroundColor: colors.surface,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    borderBottomWidth: 1,
-    borderColor: colors.border,
-  },
-  heroRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, paddingTop: spacing.xs },
-  heroTextLeft: {
-    flex: 1,
-    paddingTop: 2,
-    paddingRight: 4,
-  },
-  heroName: { color: colors.textPrimary, fontSize: 20, fontWeight: "800", marginTop: 1 },
-  heroGreet: { color: colors.textSecondary, fontSize: 14, fontWeight: "600", marginTop: 4, lineHeight: 19 },
-  iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  summaryPress: { marginTop: spacing.md, marginBottom: spacing.lg + 4 },
-  glanceCard: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-  },
-  glanceCardRow: { flexDirection: "row", alignItems: "center" },
-  freoCardWrap: { marginLeft: 8 },
-  summaryTitle: { fontWeight: "800", fontSize: 16, color: colors.textPrimary, marginBottom: 8 },
-  countInline: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
-  summaryCountNum: { color: colors.primary, fontSize: 36, fontWeight: "900", lineHeight: 40 },
-  summaryCountLbl: { color: colors.primaryDark, fontSize: 18, fontWeight: "800", marginBottom: 4 },
-  summaryHint: { color: colors.textSecondary, fontSize: 13, marginTop: 8 },
-  error: { color: colors.error, marginTop: spacing.sm },
-  busy: { color: colors.textSecondary, marginTop: spacing.xs, textAlign: "center" },
-  sectionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  sectionTitle: { fontSize: 18, fontWeight: "800", color: colors.textPrimary },
-  sectionAction: { color: colors.primary, fontWeight: "700", fontSize: 13 },
-  emptyText: { color: colors.textSecondary, lineHeight: 21 },
-  listScroll: { maxHeight: 280 },
-  listScrollContent: { gap: 10, paddingBottom: 2 },
-  shopRow: {
+  header: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  headerText: { flex: 1 },
+  eyebrow: { ...type.subhead, color: colors.textSecondary, fontWeight: "500" },
+  hello: { ...type.largeTitle, color: colors.textPrimary },
+  summary: {
+    borderRadius: radius.lg,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.xs,
+    paddingVertical: spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
+    ...shadows.raised,
   },
-  shopName: { fontWeight: "700", fontSize: 15, color: colors.textPrimary },
-  shopMeta: { marginTop: 4, color: colors.textSecondary, fontSize: 12 },
-  modalBackdrop: {
+  summaryText: { flex: 1 },
+  summaryEyebrow: { ...type.footnote, color: "rgba(255,255,255,0.82)", fontWeight: "600" },
+  summaryCount: { fontSize: 40, lineHeight: 46, fontWeight: "800", color: colors.textOnPrimary, letterSpacing: -1 },
+  summaryUnit: { fontSize: 20, fontWeight: "700", letterSpacing: 0 },
+  summaryNote: { ...type.subhead, color: colors.textOnPrimary, fontWeight: "600" },
+  summaryFreo: { marginVertical: -spacing.xs },
+  quickRow: { flexDirection: "row", gap: spacing.sm },
+  quick: {
     flex: 1,
-    backgroundColor: "rgba(10,19,43,0.35)",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalCard: {
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xxs,
     backgroundColor: colors.surface,
-    borderRadius: 18,
-    borderWidth: 1,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    padding: 16,
+    ...shadows.card,
   },
-  modalTitle: { fontSize: 20, fontWeight: "800", color: colors.textPrimary },
-  modalSub: { marginTop: 6, marginBottom: 12, color: colors.textSecondary },
-  modalChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  modalBtns: { marginTop: 14, flexDirection: "row", justifyContent: "flex-end", gap: 10 },
-  btnGhost: { paddingVertical: 10, paddingHorizontal: 14 },
-  btnGhostTxt: { color: colors.textSecondary, fontWeight: "700" },
-  btnPrimary: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-  },
-  btnPrimaryTxt: { color: colors.textOnPrimary, fontWeight: "800" },
+  quickPressed: { opacity: 0.7, transform: [{ scale: 0.97 }] },
+  quickIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  quickLabel: { ...type.footnote, fontWeight: "600", color: colors.textPrimary, textAlign: "center" },
+  chipScroll: { marginHorizontal: -spacing.lg },
+  chips: { gap: spacing.xs, paddingHorizontal: spacing.lg },
+  allFresh: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  allFreshText: { ...type.subhead, color: colors.textSecondary, flex: 1 },
+  muted: { ...type.subhead, color: colors.textSecondary },
+  shopEmpty: { padding: spacing.md, gap: spacing.md },
+  shopRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 52, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
+  shopEmoji: { fontSize: 20 },
+  shopName: { ...type.body, fontWeight: "500", color: colors.textPrimary, flex: 1 },
+  shopMeta: { ...type.footnote, fontWeight: "600", color: colors.warning },
+  sheetChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
 });

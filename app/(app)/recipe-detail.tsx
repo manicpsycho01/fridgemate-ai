@@ -1,275 +1,249 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import {
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MetaPill } from "../../components/RecipeCard";
+import { Banner } from "../../components/ui/Banner";
+import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { FreoMascot } from "../../components/ui/FreoMascot";
-import { ScrollScreen, Screen } from "../../components/ui/Screen";
-import { applyPerIngredientRecipeUsage } from "../../lib/inventory";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { IconButton } from "../../components/ui/IconButton";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { success, warning } from "../../lib/haptics";
+import { ingredientMatchesAny } from "../../lib/ingredientMatch";
+import { applyPerIngredientRecipeUsage, getInventory } from "../../lib/inventory";
+import { recipeEmoji } from "../../lib/itemEmoji";
+import { parseJsonParam } from "../../lib/recipeRoute";
 import { saveRecipeToHistory } from "../../lib/recipes";
-import { colors, spacing } from "../../theme/tokens";
-import type { PerIngredientUsage, Recipe, RecipeMacros } from "../../types";
+import { colors, radius, spacing, type } from "../../theme/tokens";
+import type { PerIngredientUsage, Recipe } from "../../types";
 
-type MacroTile = { label: string; value: string; color: string };
-function buildMacroTiles(m: RecipeMacros): MacroTile[] {
-  return [
-    { label: "Calories", value: `${m.calories} kcal`, color: "#fff3e0" },
-    { label: "Protein",  value: `${m.protein}g`,      color: "#e8f5e9" },
-    { label: "Carbs",    value: `${m.carbs}g`,         color: "#e3f2fd" },
-    { label: "Fat",      value: `${m.fat}g`,           color: "#fce4ec" },
-    { label: "Fiber",    value: `${m.fiber}g`,         color: "#f3e5f5" },
-  ];
-}
-
-function parseRecipe(raw: string | string[] | undefined): Recipe | null {
-  const s = Array.isArray(raw) ? raw[0] : raw;
-  if (!s || typeof s !== "string") return null;
-  try {
-    return JSON.parse(decodeURIComponent(s)) as Recipe;
-  } catch {
-    return null;
-  }
-}
-
-type Row = { index: number; label: string };
-
-const USAGE_OPTIONS: { key: PerIngredientUsage; label: string }[] = [
-  { key: "used_some", label: "Used some" },
-  { key: "used_all", label: "Used all" },
-  { key: "didnt_use", label: "Didn't use" },
+const USAGE: { value: PerIngredientUsage; label: string }[] = [
+  { value: "didnt_use", label: "Didn't use" },
+  { value: "used_some", label: "Used some" },
+  { value: "used_all", label: "Used all" },
 ];
+
+function isRecipe(v: unknown): v is Recipe {
+  const r = v as Recipe | null;
+  return !!r && typeof r.title === "string" && Array.isArray(r.ingredientsUsed) && Array.isArray(r.steps);
+}
 
 export default function RecipeDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { recipe: recipeParam } = useLocalSearchParams<{ recipe?: string }>();
-  const recipe = useMemo(() => parseRecipe(recipeParam), [recipeParam]);
-  const [cookOpen, setCookOpen] = useState(false);
+  const recipe = useMemo(() => parseJsonParam(recipeParam, isRecipe), [recipeParam]);
+  const [fridgeNames, setFridgeNames] = useState<string[] | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [usage, setUsage] = useState<PerIngredientUsage[]>([]);
   const [saving, setSaving] = useState(false);
-  const [usageByIndex, setUsageByIndex] = useState<Record<number, PerIngredientUsage>>({});
+  const [status, setStatus] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
 
-  const rows: Row[] = useMemo(() => {
-    if (!recipe) return [];
-    return recipe.ingredientsUsed.map((label, index) => ({ index, label }));
-  }, [recipe]);
+  useEffect(() => {
+    getInventory()
+      .then((items) => setFridgeNames(items.map((i) => i.name)))
+      .catch(() => setFridgeNames([]));
+  }, []);
 
-  function openCookSheet() {
-    const init: Record<number, PerIngredientUsage> = {};
-    rows.forEach((r) => {
-      init[r.index] = "didnt_use";
-    });
-    setUsageByIndex(init);
-    setCookOpen(true);
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/(app)/(tabs)/cook"));
+
+  if (!recipe) {
+    return (
+      <View style={[styles.root, { paddingTop: insets.top + spacing.xl, paddingHorizontal: spacing.lg }]}>
+        <EmptyState title="Recipe not found" message="This recipe couldn't be opened.">
+          <Button label="Go back" onPress={back} />
+        </EmptyState>
+      </View>
+    );
   }
 
-  function setUsage(index: number, action: PerIngredientUsage) {
-    setUsageByIndex((prev) => ({ ...prev, [index]: action }));
+  const have = (ing: string) => (fridgeNames ? ingredientMatchesAny(ing, fridgeNames) : false);
+
+  function openSheet() {
+    setUsage(recipe!.ingredientsUsed.map((ing) => (have(ing) ? "used_some" : "didnt_use")));
+    setSheetOpen(true);
   }
 
-  async function submitCooking() {
-    if (!recipe) return;
-    const entries = rows.map((r) => ({
-      recipeIngredient: r.label,
-      action: usageByIndex[r.index] ?? "didnt_use",
-    }));
-
-    const anyUsed = entries.some((e) => e.action === "used_some" || e.action === "used_all");
-    const anyChanged = entries.some((e) => e.action !== "didnt_use");
-
+  async function submit() {
+    const entries = recipe!.ingredientsUsed.map((ing, i) => ({ recipeIngredient: ing, action: usage[i] ?? "didnt_use" }));
+    const anyUsed = entries.some((e) => e.action !== "didnt_use");
     setSaving(true);
     try {
       if (anyUsed) {
-        await saveRecipeToHistory(recipe);
-      }
-      if (anyChanged) {
+        await saveRecipeToHistory(recipe!);
         await applyPerIngredientRecipeUsage(entries);
       }
-      setCookOpen(false);
-      if (!anyChanged) {
-        Alert.alert("No changes", "Inventory was not updated.");
-      } else {
-        Alert.alert("Updated", "Inventory has been updated for each ingredient you chose.", [
-          { text: "View inventory", onPress: () => router.replace("/(app)/(tabs)/inventory") },
-          { text: "OK" },
-        ]);
-      }
+      success();
+      setSheetOpen(false);
+      setStatus(
+        anyUsed
+          ? { tone: "success", message: "Nice cooking! Saved to History and your fridge is updated." }
+          : { tone: "info", message: "No ingredients marked as used, so nothing changed." }
+      );
+      const items = await getInventory().catch(() => null);
+      if (items) setFridgeNames(items.map((i) => i.name));
     } catch (e) {
-      Alert.alert("Could not update", e instanceof Error ? e.message : "Unknown error");
+      warning();
+      setStatus({ tone: "error", message: e instanceof Error ? e.message : "Could not update. Please try again." });
+      setSheetOpen(false);
     } finally {
       setSaving(false);
     }
   }
 
-  if (!recipe) {
-    return (
-      <Screen>
-        <View style={styles.center}>
-          <Text style={styles.muted}>Missing recipe data.</Text>
-          <Button label="Go back" onPress={() => router.back()} />
-        </View>
-      </Screen>
-    );
-  }
+  const m = recipe.macros;
+  const macros = m
+    ? [
+        { label: "Calories", value: `${m.calories}`, unit: "kcal" },
+        { label: "Protein", value: `${m.protein}`, unit: "g" },
+        { label: "Carbs", value: `${m.carbs}`, unit: "g" },
+        { label: "Fat", value: `${m.fat}`, unit: "g" },
+        { label: "Fiber", value: `${m.fiber}`, unit: "g" },
+      ]
+    : [];
+  const haveCount = recipe.ingredientsUsed.filter(have).length;
 
   return (
-    <ScrollScreen>
-      <View style={styles.header}>
-        <Text style={styles.title}>{recipe.title}</Text>
-        <FreoMascot compact size={52} />
-      </View>
-      <Text style={styles.meta}>
-        {recipe.time} · {recipe.difficulty}
-      </Text>
-      <Text style={styles.desc}>{recipe.description}</Text>
+    <View style={styles.root}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing.xs }]} showsVerticalScrollIndicator={false}>
+        <View style={styles.inner}>
+          <IconButton icon="chevron-back" label="Back" onPress={back} />
 
-      {recipe.macros ? (
-        <Card>
-          <Text style={styles.section}>Nutrition (per serving, estimated)</Text>
-          <View style={styles.macroGrid}>
-            {buildMacroTiles(recipe.macros).map((t) => (
-              <View key={t.label} style={[styles.macroTile, { backgroundColor: t.color }]}>
-                <Text style={styles.macroValue}>{t.value}</Text>
-                <Text style={styles.macroLabel}>{t.label}</Text>
-              </View>
-            ))}
+          <View style={styles.hero}>
+            <View style={styles.heroThumb}>
+              <Text style={styles.heroEmoji}>{recipeEmoji(recipe.title)}</Text>
+            </View>
+            <Text style={styles.title} accessibilityRole="header">
+              {recipe.title}
+            </Text>
+            {recipe.description ? <Text style={styles.desc}>{recipe.description}</Text> : null}
+            <View style={styles.pills}>
+              <MetaPill icon="time-outline" label={recipe.time} />
+              <MetaPill icon="speedometer-outline" label={recipe.difficulty} />
+              {m ? <MetaPill icon="flame-outline" label={`${m.calories} kcal`} /> : null}
+              {m ? <MetaPill icon="barbell-outline" label={`${m.protein}g protein`} /> : null}
+            </View>
           </View>
-        </Card>
-      ) : null}
 
-      <Card>
-        <Text style={styles.section}>Ingredients in this recipe</Text>
-        {recipe.ingredientsUsed.map((i, idx) => (
-          <Text key={`${idx}-${i}`} style={styles.line}>
-            • {i}
-          </Text>
-        ))}
-      </Card>
+          {status ? (
+            <Banner
+              tone={status.tone}
+              message={status.message}
+              action={status.tone === "success" ? "View fridge" : undefined}
+              onAction={() => router.dismissTo("/(app)/(tabs)/inventory")}
+            />
+          ) : null}
 
-      <Card>
-        <Text style={styles.section}>Steps</Text>
-        {recipe.steps.map((step, idx) => (
-          <Text key={idx} style={styles.line}>
-            {idx + 1}. {step}
-          </Text>
-        ))}
-      </Card>
-
-      <View style={styles.cookCta}>
-        <Text style={styles.section}>When you are done cooking</Text>
-        <Text style={styles.hint}>Tap below to log how much of each ingredient you used. Inventory updates after you confirm.</Text>
-        <Button label="I cooked this" onPress={openCookSheet} />
-      </View>
-
-      <Modal visible={cookOpen} animationType="slide" transparent onRequestClose={() => { if (!saving) setCookOpen(false); }}>
-        <View style={styles.modalRoot}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (!saving) setCookOpen(false); }} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-          <Text style={styles.sheetTitle}>How did you use each ingredient?</Text>
-          <Text style={styles.sheetSub}>Choose one option per line so your inventory stays accurate.</Text>
-          <ScrollView style={styles.sheetScroll} keyboardShouldPersistTaps="handled">
-            {rows.map((r) => (
-              <View key={r.index} style={styles.ingBlock}>
-                <Text style={styles.ingLabel}>{r.label}</Text>
-                <View style={styles.optionRow}>
-                  {USAGE_OPTIONS.map((opt) => {
-                    const selected = usageByIndex[r.index] === opt.key;
-                    return (
-                      <Pressable
-                        key={opt.key}
-                        onPress={() => setUsage(r.index, opt.key)}
-                        style={[styles.optionChip, selected && styles.optionChipOn]}
-                      >
-                        <Text style={[styles.optionTxt, selected && styles.optionTxtOn]}>{opt.label}</Text>
-                      </Pressable>
-                    );
-                  })}
+          {macros.length ? (
+            <View style={styles.macroRow}>
+              {macros.map((t) => (
+                <View key={t.label} style={styles.macro}>
+                  <Text style={styles.macroValue} numberOfLines={1} adjustsFontSizeToFit>
+                    {t.value}
+                    <Text style={styles.macroUnit}>{t.unit}</Text>
+                  </Text>
+                  <Text style={styles.macroLabel}>{t.label}</Text>
                 </View>
-              </View>
-            ))}
-          </ScrollView>
-          <View style={styles.sheetActions}>
-            <Button label="Cancel" variant="ghost" onPress={() => { if (!saving) setCookOpen(false); }} disabled={saving} />
-            <Button label="Save & update inventory" onPress={() => void submitCooking()} loading={saving} />
+              ))}
+            </View>
+          ) : null}
+
+          <View>
+            <View style={styles.sectionRow}>
+              <Text style={styles.section}>Ingredients</Text>
+              {fridgeNames ? (
+                <Text style={styles.sectionMeta}>
+                  You have {haveCount} of {recipe.ingredientsUsed.length}
+                </Text>
+              ) : null}
+            </View>
+            <Card padded={false}>
+              {recipe.ingredientsUsed.map((ing, i) => {
+                const ok = have(ing);
+                return (
+                  <View key={`${i}-${ing}`} style={[styles.ingRow, i > 0 && styles.divider]}>
+                    <Ionicons name={ok ? "checkmark-circle" : "ellipse-outline"} size={22} color={ok ? colors.success : colors.textTertiary} />
+                    <Text style={styles.ingName}>{ing}</Text>
+                    <Text style={[styles.ingTag, ok && { color: colors.success }]}>{fridgeNames ? (ok ? "In fridge" : "Need") : ""}</Text>
+                  </View>
+                );
+              })}
+            </Card>
           </View>
+
+          <View>
+            <Text style={[styles.section, styles.sectionRow]}>Steps</Text>
+            <View style={styles.steps}>
+              {recipe.steps.map((s, i) => (
+                <View key={i} style={styles.step}>
+                  <View style={styles.stepNum}>
+                    <Text style={styles.stepNumText}>{i + 1}</Text>
+                  </View>
+                  <Text style={styles.stepText}>{s}</Text>
+                </View>
+              ))}
+            </View>
           </View>
+          {m ? <Text style={styles.disclaimer}>Nutrition is an estimate per serving.</Text> : null}
         </View>
-      </Modal>
-    </ScrollScreen>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+        <Button label="I cooked this" icon="checkmark-done" onPress={openSheet} />
+      </View>
+
+      <BottomSheet
+        visible={sheetOpen}
+        onClose={() => !saving && setSheetOpen(false)}
+        title="How much did you use?"
+        subtitle="We'll update your fridge and save this to History."
+        footer={<Button label="Save & update fridge" onPress={() => void submit()} loading={saving} />}
+      >
+        <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: spacing.md }}>
+          {recipe.ingredientsUsed.map((ing, i) => (
+            <View key={`${i}-${ing}`} style={{ gap: spacing.xs }}>
+              <Text style={styles.sheetIng}>{ing}</Text>
+              <SegmentedControl options={USAGE} value={usage[i] ?? "didnt_use"} onChange={(v) => setUsage((u) => u.map((x, j) => (j === i ? v : x)))} />
+            </View>
+          ))}
+        </ScrollView>
+      </BottomSheet>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.md },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  muted: { color: colors.textSecondary, marginBottom: 12 },
-  title: { fontSize: 24, fontWeight: "800", color: colors.textPrimary },
-  meta: { marginTop: 6, color: colors.textSecondary },
-  desc: { marginTop: 10, marginBottom: 10, color: colors.textPrimary, lineHeight: 22 },
-  section: { fontWeight: "700", color: colors.textPrimary, marginTop: 8, marginBottom: 6 },
-  line: { color: colors.textPrimary, lineHeight: 22 },
-  macroGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  macroTile: {
-    minWidth: "28%",
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    alignItems: "center",
-  },
-  macroValue: { fontSize: 15, fontWeight: "800", color: colors.textPrimary },
-  macroLabel: { fontSize: 11, fontWeight: "600", color: colors.textSecondary, marginTop: 2 },
-  cookCta: { marginTop: spacing.md, gap: spacing.sm },
-  hint: { color: colors.textSecondary, lineHeight: 20, marginBottom: spacing.sm },
-  modalRoot: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.45)",
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    maxHeight: "88%",
-  },
-  sheetTitle: { fontSize: 20, fontWeight: "800", color: colors.textPrimary },
-  sheetSub: { marginTop: 6, color: colors.textSecondary, lineHeight: 20, marginBottom: spacing.sm },
+  root: { flex: 1, backgroundColor: colors.background },
+  scroll: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  inner: { width: "100%", maxWidth: 560, alignSelf: "center", gap: spacing.xl },
+  hero: { alignItems: "center", gap: spacing.xs, marginTop: -spacing.md },
+  heroThumb: { width: 88, height: 88, borderRadius: radius.xl, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center", marginBottom: spacing.xs },
+  heroEmoji: { fontSize: 46 },
+  title: { ...type.title1, color: colors.textPrimary, textAlign: "center" },
+  desc: { ...type.subhead, color: colors.textSecondary, textAlign: "center" },
+  pills: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: spacing.xxs },
+  macroRow: { flexDirection: "row", gap: spacing.xs },
+  macro: { flex: 1, alignItems: "center", paddingVertical: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  macroValue: { ...type.headline, fontWeight: "700", color: colors.textPrimary },
+  macroUnit: { ...type.caption, color: colors.textSecondary },
+  macroLabel: { ...type.caption, fontWeight: "500", color: colors.textTertiary, marginTop: 2 },
+  sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: spacing.sm },
+  section: { ...type.title3, color: colors.textPrimary },
+  sectionMeta: { ...type.footnote, color: colors.textSecondary },
+  ingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
+  ingName: { ...type.body, color: colors.textPrimary, flex: 1, textTransform: "capitalize" },
+  ingTag: { ...type.caption, color: colors.textTertiary },
+  steps: { gap: spacing.md },
+  step: { flexDirection: "row", gap: spacing.sm },
+  stepNum: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  stepNumText: { ...type.footnote, fontWeight: "700", color: colors.textOnPrimary },
+  stepText: { ...type.body, color: colors.textPrimary, flex: 1, paddingTop: 3 },
+  disclaimer: { ...type.caption, fontWeight: "400", color: colors.textTertiary, textAlign: "center" },
+  footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, backgroundColor: colors.background, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   sheetScroll: { maxHeight: 420 },
-  ingBlock: {
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  ingLabel: { fontSize: 16, fontWeight: "700", color: colors.textPrimary, marginBottom: spacing.sm },
-  optionRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
-  optionChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  optionChipOn: {
-    borderColor: colors.primary,
-    backgroundColor: colors.chipActive,
-  },
-  optionTxt: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
-  optionTxtOn: { color: colors.textPrimary },
-  sheetActions: { marginTop: spacing.md, gap: spacing.sm },
+  sheetIng: { ...type.headline, color: colors.textPrimary, textTransform: "capitalize" },
 });

@@ -15,7 +15,8 @@ type AuthContextValue = {
   loading: boolean;
   configError: string | null;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  /** `needsConfirmation` is true when Supabase requires email confirmation before a session exists. */
+  signUp: (email: string, password: string) => Promise<{ error: Error | null; needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
 };
 
@@ -78,10 +79,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = useCallback(async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
-      return { error: new Error(configError ?? "Supabase not configured") };
+      return { error: new Error(configError ?? "Supabase not configured"), needsConfirmation: false };
     }
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error: error ? new Error(error.message) : null };
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    return { error: error ? new Error(error.message) : null, needsConfirmation: !error && !data.session };
   }, [configError]);
 
   const signOut = useCallback(async () => {

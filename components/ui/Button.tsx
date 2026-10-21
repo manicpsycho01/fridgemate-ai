@@ -1,110 +1,93 @@
-import React, { useRef } from "react";
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text } from "react-native";
-import { colors, radius, shadows, spacing, typography } from "../../theme/tokens";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import type { ComponentProps } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { tap } from "../../lib/haptics";
+import { colors, gradient, HIT, radius, shadows, spacing, type } from "../../theme/tokens";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "success";
+type Variant = "primary" | "secondary" | "ghost" | "destructive";
+type IconName = ComponentProps<typeof Ionicons>["name"];
 
 type Props = {
   label: string;
   onPress: () => void;
+  variant?: Variant;
+  icon?: IconName;
   loading?: boolean;
   disabled?: boolean;
-  variant?: ButtonVariant;
+  size?: "lg" | "md";
+  style?: StyleProp<ViewStyle>;
+  accessibilityHint?: string;
 };
 
-export function Button({
-  label,
-  onPress,
-  loading = false,
-  disabled = false,
-  variant = "primary",
-}: Props) {
-  const off = disabled || loading;
-  const scale = useRef(new Animated.Value(1)).current;
+const FG: Record<Variant, string> = {
+  primary: colors.textOnPrimary,
+  secondary: colors.primary,
+  ghost: colors.primary,
+  destructive: colors.danger,
+};
 
-  const pop = () => {
-    Animated.sequence([
-      Animated.spring(scale, {
-        toValue: 0.94,
-        speed: 42,
-        bounciness: 0,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scale, {
-        toValue: 1.03,
-        speed: 30,
-        bounciness: 10,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scale, {
-        toValue: 1,
-        speed: 30,
-        bounciness: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
+export function Button({ label, onPress, variant = "primary", icon, loading = false, disabled = false, size = "lg", style, accessibilityHint }: Props) {
+  const off = disabled || loading;
+  const fg = FG[variant];
+  const content = loading ? (
+    <ActivityIndicator color={fg} />
+  ) : (
+    <View style={styles.row}>
+      {icon ? <Ionicons name={icon} size={size === "lg" ? 20 : 18} color={fg} /> : null}
+      <Text style={[styles.label, size === "md" && styles.labelMd, { color: fg }]} numberOfLines={1} adjustsFontSizeToFit>
+        {label}
+      </Text>
+    </View>
+  );
 
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <Pressable
-        onPress={() => {
-          if (off) return;
-          pop();
-          onPress();
-        }}
-        disabled={off}
-        style={({ pressed }) => [
-          styles.base,
-          styles[variant],
-          variant === "primary" && shadows.bubble,
-          off && styles.disabled,
-          pressed && !off && styles.pressed,
-        ]}
-      >
-        {loading ? (
-          <ActivityIndicator
-            color={
-              variant === "outline" || variant === "ghost"
-                ? colors.primary
-                : colors.textOnPrimary
-            }
-          />
-        ) : (
-          <Text style={[styles.text, textStyles[variant]]}>{label}</Text>
-        )}
-      </Pressable>
-    </Animated.View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: off, busy: loading }}
+      disabled={off}
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      style={({ pressed }) => [
+        styles.base,
+        size === "md" && styles.md,
+        variant === "primary" && shadows.raised,
+        variant === "secondary" && styles.secondary,
+        variant === "destructive" && styles.destructive,
+        off && styles.disabled,
+        pressed && styles.pressed,
+        style,
+      ]}
+    >
+      {variant === "primary" ? (
+        <LinearGradient colors={gradient.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.gradient]} />
+      ) : null}
+      {content}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 52,
+    minHeight: 54,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "visible",
   },
-  primary: { backgroundColor: colors.primary },
-  secondary: {
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  outline: { borderWidth: 2, borderColor: colors.primary, backgroundColor: "transparent" },
-  ghost: { backgroundColor: "transparent", minHeight: 44 },
-  success: { backgroundColor: colors.success, ...shadows.soft },
-  pressed: { opacity: 0.9 },
-  disabled: { opacity: 0.55 },
-  text: { ...typography.body, fontWeight: "700", letterSpacing: 0.1 },
-});
-
-const textStyles = StyleSheet.create({
-  primary: { color: colors.textOnPrimary },
-  secondary: { color: colors.primaryDark },
-  outline: { color: colors.primary },
-  ghost: { color: colors.textSecondary },
-  success: { color: colors.textOnPrimary },
+  md: { minHeight: HIT, borderRadius: radius.sm + 2, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  gradient: { borderRadius: radius.md },
+  secondary: { backgroundColor: colors.primarySoft },
+  destructive: { backgroundColor: colors.dangerSoft },
+  disabled: { opacity: 0.5 },
+  pressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs },
+  label: { ...type.headline, fontSize: 17, fontWeight: "700" },
+  labelMd: { fontSize: 15 },
 });
