@@ -169,9 +169,9 @@ export default function RecipeDetailScreen() {
         <Button label="I cooked this" onPress={openCookSheet} />
       </View>
 
-      <Modal visible={cookOpen} animationType="slide" transparent onRequestClose={() => !saving && setCookOpen(false)}>
+      <Modal visible={cookOpen} animationType="slide" transparent onRequestClose={() => { if (!saving) setCookOpen(false); }}>
         <View style={styles.modalRoot}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => !saving && setCookOpen(false)} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (!saving) setCookOpen(false); }} />
           <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           <Text style={styles.sheetTitle}>How did you use each ingredient?</Text>
           <Text style={styles.sheetSub}>Choose one option per line so your inventory stays accurate.</Text>
@@ -197,7 +197,7 @@ export default function RecipeDetailScreen() {
             ))}
           </ScrollView>
           <View style={styles.sheetActions}>
-            <Button label="Cancel" variant="ghost" onPress={() => !saving && setCookOpen(false)} disabled={saving} />
+            <Button label="Cancel" variant="ghost" onPress={() => { if (!saving) setCookOpen(false); }} disabled={saving} />
             <Button label="Save & update inventory" onPress={() => void submitCooking()} loading={saving} />
           </View>
           </View>

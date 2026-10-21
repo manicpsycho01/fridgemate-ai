@@ -1,18 +1,12 @@
 {
   "expo": {
     "scheme": "fridgemate",
-    "name": "fridgemate-ai",
+    "name": "FridgeMate AI",
     "slug": "fridgemate-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -25,7 +19,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -38,6 +31,16 @@
         {
           "photosPermission": "Allow FridgeMate AI to access your photos to pick a fridge image for the demo.",
           "cameraPermission": "Allow FridgeMate AI to use the camera to photograph your fridge."
+        }
+      ],
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#f7f9ff"
         }
       ]
     ]

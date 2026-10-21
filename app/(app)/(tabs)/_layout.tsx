@@ -28,14 +28,14 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ title: "Home", tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} /> }}
+        options={{ title: "Home", tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={String(color)} size={size} /> }}
       />
       <Tabs.Screen
         name="inventory"
         options={{
           title: "Inventory",
           headerTitleAlign: "center",
-          tabBarIcon: ({ color, size }) => <Ionicons name="basket-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="basket-outline" color={String(color)} size={size} />,
         }}
       />
       <Tabs.Screen
@@ -56,12 +56,12 @@ export default function TabsLayout() {
         options={{
           title: "Cook",
           headerTitle: "Cook with ingredients",
-          tabBarIcon: ({ color, size }) => <Ionicons name="restaurant-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="restaurant-outline" color={String(color)} size={size} />,
         }}
       />
       <Tabs.Screen
         name="history"
-        options={{ title: "History", tabBarIcon: ({ color, size }) => <Ionicons name="time-outline" color={color} size={size} /> }}
+        options={{ title: "History", tabBarIcon: ({ color, size }) => <Ionicons name="time-outline" color={String(color)} size={size} /> }}
       />
     </Tabs>
   );
