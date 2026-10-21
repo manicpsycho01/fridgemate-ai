@@ -1,8 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState, type ComponentProps } from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { Viewfinder } from "../../../components/scan/Viewfinder";
 import { AppHeader } from "../../../components/ui/AppHeader";
 import { Banner } from "../../../components/ui/Banner";
 import { Button } from "../../../components/ui/Button";
@@ -11,29 +11,17 @@ import { ScrollScreen } from "../../../components/ui/Screen";
 import { MOCK_SCAN_ITEMS } from "../../../constants/mocks";
 import { detectFridgeItemsFromUri } from "../../../lib/detectFridge";
 import { success, warning } from "../../../lib/haptics";
-import { colors, radius, shadows, spacing, type } from "../../../theme/tokens";
+import { spacing } from "../../../theme/tokens";
 
 type Mode = "fridge" | "counter";
 type Photo = { uri: string; mimeType: string };
 
-const PROGRESS = ["Preparing your photo…", "Freo is looking at your shelves…", "Spotting ingredients…", "Almost there…"];
+const PROGRESS = ["Looking at your shelves…", "Spotting produce…", "Reading labels…", "Almost there…"];
 
 const COPY: Record<Mode, { subtitle: string; tip: string }> = {
-  fridge: { subtitle: "Snap your open fridge and AI will list what's inside.", tip: "Open the door wide, use good light and keep shelves in frame." },
-  counter: { subtitle: "Snap the ingredients on your counter to get recipes for exactly those.", tip: "Spread items out so each one is visible." },
+  fridge: { subtitle: "Snap your open fridge and AI lists what's inside.", tip: "Open the door wide and use good light — I'll do the rest." },
+  counter: { subtitle: "Snap ingredients on your counter for recipes with exactly those.", tip: "Spread things out so I can see each one." },
 };
-
-function ChoiceTile({ icon, title, body, onPress }: { icon: ComponentProps<typeof Ionicons>["name"]; title: string; body: string; onPress: () => void }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}>
-      <View style={styles.tileIcon}>
-        <Ionicons name={icon} size={28} color={colors.primary} />
-      </View>
-      <Text style={styles.tileTitle}>{title}</Text>
-      <Text style={styles.tileBody}>{body}</Text>
-    </Pressable>
-  );
-}
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -100,9 +88,7 @@ export default function ScanScreen() {
   }
 
   return (
-    <ScrollScreen>
-      <AppHeader title={mode === "fridge" ? "Scan your fridge" : "Scan your counter"} subtitle={COPY[mode].subtitle} />
-
+    <ScrollScreen header={<AppHeader title={mode === "fridge" ? "Scan your fridge" : "Scan your counter"} subtitle={COPY[mode].subtitle} />}>
       <SegmentedControl
         options={[
           { value: "fridge", label: "Fridge → inventory" },
@@ -115,70 +101,32 @@ export default function ScanScreen() {
         }}
       />
 
-      {photo ? (
-        <View style={styles.previewWrap}>
-          <Image source={{ uri: photo.uri }} style={styles.preview} resizeMode="cover" accessibilityLabel="Selected photo" />
-          {detecting ? (
-            <View style={styles.overlay} accessibilityLiveRegion="polite">
-              <View style={styles.progressPill}>
-                <ActivityIndicator color={colors.primary} />
-                <Text style={styles.progressText}>{PROGRESS[step]}</Text>
-              </View>
-            </View>
-          ) : null}
-        </View>
-      ) : (
-        <View style={styles.tiles}>
-          <ChoiceTile icon="camera-outline" title="Take a photo" body="Use your camera" onPress={() => void pick("camera")} />
-          <ChoiceTile icon="images-outline" title="Choose photo" body="From your library" onPress={() => void pick("library")} />
-        </View>
-      )}
+      <Viewfinder photoUri={photo?.uri ?? null} detecting={detecting} progress={PROGRESS[step]} tip={COPY[mode].tip} onCapture={() => void pick("camera")} />
 
       {error ? <Banner message={error} action={photo ? "Retry" : undefined} onAction={photo ? () => void detect(photo) : undefined} /> : null}
 
-      {photo && !detecting ? (
+      {detecting ? null : photo ? (
         <View style={styles.actions}>
           <Button label="Analyse photo" icon="sparkles" onPress={() => void detect(photo)} />
-          <Button label="Choose a different photo" variant="secondary" onPress={() => { setPhoto(null); setError(null); }} />
+          <Button
+            label="Choose a different photo"
+            variant="ghost"
+            onPress={() => {
+              setPhoto(null);
+              setError(null);
+            }}
+          />
         </View>
-      ) : null}
-
-      {!photo ? (
-        <View style={styles.tip}>
-          <Ionicons name="bulb-outline" size={18} color={colors.primary} />
-          <Text style={styles.tipText}>{COPY[mode].tip}</Text>
+      ) : (
+        <View style={styles.actions}>
+          <Button label="Choose from library" icon="images-outline" variant="secondary" onPress={() => void pick("library")} />
+          <Button label="No photo handy? Try sample items" variant="ghost" size="md" onPress={() => goConfirm(MOCK_SCAN_ITEMS)} />
         </View>
-      ) : null}
-
-      {!detecting ? <Button label="No photo handy? Try sample items" variant="ghost" size="md" onPress={() => goConfirm(MOCK_SCAN_ITEMS)} /> : null}
+      )}
     </ScrollScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  tiles: { flexDirection: "row", gap: spacing.sm },
-  tile: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.sm,
-    gap: spacing.xxs,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
-    borderColor: colors.primaryMuted,
-    borderStyle: "dashed",
-  },
-  tilePressed: { backgroundColor: colors.primarySoft, transform: [{ scale: 0.98 }] },
-  tileIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center", marginBottom: spacing.xs },
-  tileTitle: { ...type.headline, color: colors.textPrimary, textAlign: "center" },
-  tileBody: { ...type.footnote, color: colors.textSecondary, textAlign: "center" },
-  previewWrap: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.surfaceAlt, ...shadows.card },
-  preview: { width: "100%", aspectRatio: 4 / 3 },
-  overlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(19,37,77,0.35)", alignItems: "center", justifyContent: "flex-end", padding: spacing.md },
-  progressPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: colors.surface, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  progressText: { ...type.subhead, fontWeight: "600", color: colors.textPrimary },
-  actions: { gap: spacing.sm },
-  tip: { flexDirection: "row", gap: spacing.xs, alignItems: "flex-start", backgroundColor: colors.primarySoft, borderRadius: radius.md, padding: spacing.sm },
-  tipText: { ...type.footnote, color: colors.textSecondary, flex: 1 },
+  actions: { gap: spacing.xs, marginTop: -spacing.xs },
 });
