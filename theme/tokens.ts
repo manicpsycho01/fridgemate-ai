@@ -1,33 +1,70 @@
-/** FridgeMate AI design tokens — calm, clean, Apple-like. */
+import type { TextStyle } from "react-native";
+
+/**
+ * FridgeMate AI — "Fresh Market" design tokens.
+ * Warm cream canvas, deep herb-green ink, one tomato hero action per screen. Freo blue is reserved for the mascot.
+ */
+const INK = "22,48,43";
+
 export const colors = {
-  primary: "#1e5eff",
-  primaryDeep: "#1849D6",
-  primarySoft: "#eef3ff",
-  primaryMuted: "#dce7ff",
-  background: "#f7f9ff",
-  surface: "#ffffff",
-  surfaceAlt: "#f1f5ff",
-  textPrimary: "#13254d",
-  textSecondary: "#5b6a8e",
-  textTertiary: "#8e9aba",
-  textOnPrimary: "#ffffff",
-  border: "#e1e8f7",
-  separator: "#e9eef9",
-  success: "#12a150",
-  successSoft: "#e5f6ec",
-  warning: "#b86e00",
-  warningSoft: "#fff3dc",
-  danger: "#d92d20",
-  dangerSoft: "#fdeceb",
-  overlay: "rgba(10, 19, 43, 0.4)",
+  canvas: "#FBF7F0",
+  surface: "#FFFFFF",
+  raised: "#FFFDF9",
+  sunk: "#F3EDE2",
+  ink: "#16302B",
+  ink2: `rgba(${INK},0.62)`,
+  ink3: `rgba(${INK},0.40)`,
+  line: `rgba(${INK},0.08)`,
+  lineStrong: `rgba(${INK},0.14)`,
+  herb: "#1F4D3F",
+  herbPressed: "#173B30",
+  herbSoft: "#E4ECE6",
+  tomato: "#FF5A36",
+  tomatoInk: "#D63E1C",
+  tomatoSoft: "#FFE8E0",
+  fresh: "#3E9B5F",
+  freshInk: "#2C7347",
+  freshSoft: "#E2F1E6",
+  soon: "#E8A33D",
+  soonInk: "#9A6210",
+  soonSoft: "#FCEFD9",
+  past: "#D9534F",
+  pastInk: "#B53A36",
+  pastSoft: "#FBE4E2",
+  freo: "#2A66FF",
+  onDark: "#FFFFFF",
+  overlay: `rgba(${INK},0.42)`,
+  // LEGACY aliases for screens not yet migrated to Fresh Market — delete with `type`/`shadows`/`gradient` below.
+  primary: "#1F4D3F",
+  primaryDeep: "#173B30",
+  primarySoft: "#E4ECE6",
+  primaryMuted: "#D5E2D9",
+  background: "#FBF7F0",
+  surfaceAlt: "#F3EDE2",
+  textPrimary: "#16302B",
+  textSecondary: `rgba(${INK},0.62)`,
+  textTertiary: `rgba(${INK},0.40)`,
+  textOnPrimary: "#FFFFFF",
+  border: `rgba(${INK},0.08)`,
+  separator: `rgba(${INK},0.08)`,
+  success: "#2C7347",
+  successSoft: "#E2F1E6",
+  warning: "#9A6210",
+  warningSoft: "#FCEFD9",
+  danger: "#B53A36",
+  dangerSoft: "#FBE4E2",
 } as const;
 
-/** Brand gradient (matches the app icon). */
-export const gradient = {
-  primary: ["#2A66FF", "#1849D6"] as const,
-};
+/** Loaded in app/_layout.tsx. */
+export const fonts = {
+  display: "Fraunces_600SemiBold",
+  displayBold: "Fraunces_700Bold",
+  regular: "Inter_400Regular",
+  medium: "Inter_500Medium",
+  semibold: "Inter_600SemiBold",
+} as const;
 
-/** 4-pt spacing scale. Screen gutter is `lg` (20). */
+/** 4/8 spacing scale. Screen gutter is `lg` (20). */
 export const spacing = {
   xxs: 4,
   xs: 8,
@@ -36,17 +73,49 @@ export const spacing = {
   lg: 20,
   xl: 24,
   xxl: 32,
+  xxxl: 48,
 } as const;
 
 export const radius = {
   sm: 10,
+  /** controls, fields, buttons */
   md: 14,
+  /** cards */
   lg: 20,
+  /** sheets */
   xl: 28,
   pill: 999,
 } as const;
 
-/** iOS-style type scale. */
+/** Type scale: Fraunces for display, Inter for UI. No fontWeight — the family carries it. */
+export const typo = {
+  display: { fontFamily: fonts.display, fontSize: 34, lineHeight: 38, letterSpacing: -0.8 },
+  title: { fontFamily: fonts.display, fontSize: 24, lineHeight: 28, letterSpacing: -0.4 },
+  heading: { fontFamily: fonts.display, fontSize: 20, lineHeight: 24, letterSpacing: -0.2 },
+  body: { fontFamily: fonts.regular, fontSize: 17, lineHeight: 24 },
+  bodyStrong: { fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24 },
+  callout: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 20 },
+  calloutStrong: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20 },
+  caption: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 16 },
+  label: { fontFamily: fonts.semibold, fontSize: 11, lineHeight: 14, letterSpacing: 0.6, textTransform: "uppercase" },
+} satisfies Record<string, TextStyle>;
+
+export type TypoVariant = keyof typeof typo;
+
+/** One soft ambient shadow; cards never get borders. */
+export const shadow = {
+  shadowColor: "#3B2A14",
+  shadowOpacity: 0.07,
+  shadowRadius: 18,
+  shadowOffset: { width: 0, height: 6 },
+  elevation: 3,
+} as const;
+
+/** Minimum touch target (Apple HIG). */
+export const HIT = 44;
+
+// ---- LEGACY (pre-Fresh Market); removed once every screen uses `typo` / `shadow`. ----
+export const gradient = { primary: ["#1F4D3F", "#173B30"] as const };
 export const type = {
   largeTitle: { fontSize: 32, lineHeight: 38, fontWeight: "800" as const, letterSpacing: -0.6 },
   title1: { fontSize: 26, lineHeight: 32, fontWeight: "800" as const, letterSpacing: -0.4 },
@@ -58,23 +127,4 @@ export const type = {
   footnote: { fontSize: 13, lineHeight: 18, fontWeight: "400" as const },
   caption: { fontSize: 12, lineHeight: 16, fontWeight: "600" as const },
 } as const;
-
-export const shadows = {
-  card: {
-    shadowColor: "#1d3d90",
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  raised: {
-    shadowColor: "#1849D6",
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-  },
-} as const;
-
-/** Minimum touch target (Apple HIG). */
-export const HIT = 44;
+export const shadows = { card: shadow, raised: shadow } as const;

@@ -1,15 +1,26 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, spacing, type } from "../../theme/tokens";
+import { Pressable, StyleSheet, View } from "react-native";
+import { colors, spacing } from "../../theme/tokens";
+import { Text } from "./Text";
 
-export function SectionHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
+/** Fraunces section title with an optional quiet text action. */
+export function SectionHeader({ title, caption, action, onAction }: { title: string; caption?: string; action?: string; onAction?: () => void }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.title} accessibilityRole="header">
-        {title}
-      </Text>
+      <View style={styles.titles}>
+        <Text variant="title" accessibilityRole="header">
+          {title}
+        </Text>
+        {caption ? (
+          <Text variant="callout" tone="secondary">
+            {caption}
+          </Text>
+        ) : null}
+      </View>
       {action && onAction ? (
-        <Pressable accessibilityRole="button" onPress={onAction} hitSlop={12} style={({ pressed }) => [styles.actionHit, pressed && { opacity: 0.5 }]}>
-          <Text style={styles.action}>{action}</Text>
+        <Pressable accessibilityRole="button" onPress={onAction} hitSlop={8} style={({ pressed }) => [styles.action, pressed && { opacity: 0.5 }]}>
+          <Text variant="calloutStrong" tone="herb">
+            {action}
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -17,8 +28,7 @@ export function SectionHeader({ title, action, onAction }: { title: string; acti
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm, marginBottom: spacing.sm },
-  title: { ...type.title3, color: colors.textPrimary, flexShrink: 1 },
-  actionHit: { minHeight: 32, justifyContent: "center" },
-  action: { ...type.subhead, fontWeight: "600", color: colors.primary },
+  row: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: spacing.sm, marginBottom: spacing.sm },
+  titles: { flexShrink: 1, gap: 2 },
+  action: { minHeight: 44, justifyContent: "center", paddingLeft: spacing.xs, marginBottom: -10 },
 });

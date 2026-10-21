@@ -1,22 +1,30 @@
 import type { ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { colors, spacing, type } from "../../theme/tokens";
+import { StyleSheet, View } from "react-native";
+import { spacing } from "../../theme/tokens";
 import { FreoMascot } from "./FreoMascot";
+import { Text } from "./Text";
 
-export function EmptyState({ title, message, children, mascotSize = 120 }: { title: string; message: string; children?: ReactNode; mascotSize?: number }) {
+/** Freo floating on the canvas, one line of copy and the actions. No card. */
+export function EmptyState({ title, message, children, mascotSize = 120 }: { title: string; message?: string; children?: ReactNode; mascotSize?: number }) {
   return (
     <View style={styles.wrap}>
-      <FreoMascot size={mascotSize} />
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.message}>{message}</Text>
+      <FreoMascot size={mascotSize} float />
+      <Text variant="title" center style={styles.title}>
+        {title}
+      </Text>
+      {message ? (
+        <Text variant="callout" tone="secondary" center style={styles.message}>
+          {message}
+        </Text>
+      ) : null}
       {children ? <View style={styles.actions}>{children}</View> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: "center", paddingVertical: spacing.lg, paddingHorizontal: spacing.md },
-  title: { ...type.title2, color: colors.textPrimary, marginTop: spacing.sm, textAlign: "center" },
-  message: { ...type.subhead, color: colors.textSecondary, textAlign: "center", marginTop: spacing.xs, maxWidth: 320 },
-  actions: { alignSelf: "stretch", gap: spacing.sm, marginTop: spacing.xl },
+  wrap: { alignItems: "center", paddingVertical: spacing.lg },
+  title: { marginTop: spacing.sm },
+  message: { marginTop: spacing.xs, maxWidth: 300 },
+  actions: { alignSelf: "stretch", gap: spacing.xs, marginTop: spacing.xl },
 });

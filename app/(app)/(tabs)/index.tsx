@@ -179,7 +179,7 @@ export default function HomeScreen() {
               {urgent.map((u) => (
                 <Chip
                   key={u.id}
-                  leading={itemEmoji(u.name)}
+                  food={u.name}
                   label={`${u.name} · ${freshnessLabel(u)}`}
                   tone={u.status === "expired" ? "danger" : "warning"}
                   onPress={() => openCookWith(router, [u.name])}
@@ -228,7 +228,7 @@ export default function HomeScreen() {
           {ESSENTIAL_OPTIONS.map((e) => (
             <Chip
               key={e}
-              leading={itemEmoji(e)}
+              food={e}
               label={e}
               selected={draft.has(e)}
               onPress={() =>

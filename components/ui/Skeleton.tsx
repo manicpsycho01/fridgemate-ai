@@ -1,21 +1,17 @@
-import { useEffect, useRef } from "react";
-import { Animated, type DimensionValue, StyleSheet } from "react-native";
+import { useEffect } from "react";
+import { type DimensionValue } from "react-native";
+import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { colors, radius } from "../../theme/tokens";
 
-/** Pulsing placeholder block. */
+/** Softly pulsing placeholder block. */
 export function Skeleton({ width = "100%", height = 16, rounded = radius.sm }: { width?: DimensionValue; height?: number; rounded?: number }) {
-  const opacity = useRef(new Animated.Value(0.5)).current;
+  const reduced = useReducedMotion();
+  const opacity = useSharedValue(0.55);
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.5, duration: 700, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity]);
-  return <Animated.View style={[styles.base, { width, height, borderRadius: rounded, opacity }]} />;
+    if (reduced) return;
+    opacity.value = withRepeat(withTiming(1, { duration: 750 }), -1, true);
+    return () => cancelAnimation(opacity);
+  }, [opacity, reduced]);
+  const animated = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <Animated.View style={[{ width, height, borderRadius: rounded, backgroundColor: colors.sunk }, animated]} />;
 }
-
-const styles = StyleSheet.create({ base: { backgroundColor: colors.primaryMuted } });

@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, radius, spacing, type } from "../../theme/tokens";
+import { colors, radius, spacing } from "../../theme/tokens";
+import { Text } from "./Text";
 
 type Props = { visible: boolean; onClose: () => void; title: string; subtitle?: string; children: ReactNode; footer?: ReactNode };
 
@@ -16,10 +17,14 @@ export function BottomSheet({ visible, onClose, title, subtitle, children, foote
         </Pressable>
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.xs }]}>
           <View style={styles.handle} />
-          <Text style={styles.title} accessibilityRole="header">
+          <Text variant="title" accessibilityRole="header">
             {title}
           </Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          {subtitle ? (
+            <Text variant="callout" tone="secondary" style={styles.subtitle}>
+              {subtitle}
+            </Text>
+          ) : null}
           <View style={styles.body}>{children}</View>
           {footer ? <View style={styles.footer}>{footer}</View> : null}
         </View>
@@ -32,7 +37,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: "flex-end" },
   backdrop: { flex: 1, backgroundColor: colors.overlay },
   sheet: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     paddingHorizontal: spacing.lg,
@@ -42,9 +47,8 @@ const styles = StyleSheet.create({
     maxWidth: 640,
     alignSelf: "center",
   },
-  handle: { alignSelf: "center", width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: spacing.md },
-  title: { ...type.title2, color: colors.textPrimary },
-  subtitle: { ...type.subhead, color: colors.textSecondary, marginTop: spacing.xxs },
-  body: { marginTop: spacing.md, flexShrink: 1 },
-  footer: { marginTop: spacing.md, gap: spacing.xs },
+  handle: { alignSelf: "center", width: 36, height: 5, borderRadius: 3, backgroundColor: colors.lineStrong, marginBottom: spacing.md },
+  subtitle: { marginTop: spacing.xxs },
+  body: { marginTop: spacing.lg, flexShrink: 1 },
+  footer: { marginTop: spacing.lg, gap: spacing.xs },
 });

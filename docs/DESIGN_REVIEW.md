@@ -113,3 +113,16 @@ Load with `@expo-google-fonts/fraunces` and `@expo-google-fonts/inter` via `expo
 - 44 pt touch targets and Dynamic Type friendly (no fixed heights on text containers).
 - Typecheck, `expo-doctor` 20/20, and an iOS export all green.
 - Verified on Expo web at 390×844 and 430×932 with Playwright screenshots of every screen and state: empty, loading, error, filled.
+
+## Progress
+Implementation log for the Fresh Market redesign (branch `ios-sdk58`, local commits "Fresh Market: <step>").
+- [x] 1. Tokens (`theme/tokens.ts`), Fraunces + Inter loaded in `app/_layout.tsx` (splash held), reanimated + svg, primitives (`Text`, `Button` hero/primary/secondary/ghost, `Surface`, `IconTile` + `lib/foodIcon.ts`, `FreshnessRing`, `Chip`, `SectionHeader`, `AnimatedEntrance`, `PressableScale`, `components/TabBar.tsx`). Legacy token aliases (`type`, `shadows`, `gradient`, old colour names) remain in tokens.ts until every screen is migrated — delete them last.
+- [ ] 2. Welcome
+- [ ] 3. Login / Sign up
+- [ ] 4. Home
+- [ ] 5. Fridge
+- [ ] 6. Cook + Recipe detail
+- [ ] 7. Scan + Confirm
+- [ ] 8. History
+- [ ] 9. Settings
+- [ ] 10. Cleanup (remove legacy tokens, `lib/itemEmoji.ts`, `Card`, unused styles), expo-doctor, iOS export, contact sheet

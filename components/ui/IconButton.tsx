@@ -1,14 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 import { tap } from "../../lib/haptics";
 import { colors, HIT } from "../../theme/tokens";
+import { PressableScale } from "./PressableScale";
 
 type Props = {
   icon: ComponentProps<typeof Ionicons>["name"];
   label: string;
   onPress: () => void;
-  tone?: "default" | "plain" | "danger" | "primary";
+  /** `default` = soft surface circle, `plain` = bare glyph, `danger` = bare red glyph. */
+  tone?: "default" | "plain" | "danger";
   size?: number;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -16,35 +18,26 @@ type Props = {
 
 /** 44pt circular icon button with an accessibility label. */
 export function IconButton({ icon, label, onPress, tone = "default", size = 20, disabled, style }: Props) {
-  const color = tone === "danger" ? colors.danger : tone === "primary" ? colors.textOnPrimary : tone === "plain" ? colors.textSecondary : colors.textPrimary;
+  const color = tone === "danger" ? colors.pastInk : tone === "plain" ? colors.ink2 : colors.ink;
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={4}
       disabled={disabled}
+      pressedScale={0.9}
       onPress={() => {
         tap();
         onPress();
       }}
-      style={({ pressed }) => [
-        styles.base,
-        tone === "default" && styles.filled,
-        tone === "primary" && styles.primary,
-        tone === "danger" && styles.danger,
-        disabled && { opacity: 0.4 },
-        pressed && { opacity: 0.6 },
-        style,
-      ]}
+      style={[styles.base, tone === "default" && styles.filled, disabled && { opacity: 0.4 }, style]}
     >
       <Ionicons name={icon} size={size} color={color} />
-    </Pressable>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   base: { width: HIT, height: HIT, borderRadius: HIT / 2, alignItems: "center", justifyContent: "center" },
-  filled: { backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  primary: { backgroundColor: colors.primary },
-  danger: { backgroundColor: "transparent" },
+  filled: { backgroundColor: colors.sunk },
 });

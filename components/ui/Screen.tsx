@@ -28,7 +28,7 @@ export function ScrollScreen({ children, refreshing = false, onRefresh, bottomIn
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       showsVerticalScrollIndicator={false}
-      refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} /> : undefined}
+      refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.herb} /> : undefined}
     >
       <View style={styles.inner}>{children}</View>
     </ScrollView>
@@ -36,7 +36,7 @@ export function ScrollScreen({ children, refreshing = false, onRefresh, bottomIn
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: colors.canvas },
   content: { paddingHorizontal: spacing.lg, flexGrow: 1 },
   inner: { width: "100%", maxWidth: 560, alignSelf: "center", gap: spacing.xl, flexGrow: 1 },
 });

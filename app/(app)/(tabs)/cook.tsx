@@ -135,7 +135,7 @@ export default function CookScreen() {
                 return (
                   <Chip
                     key={name}
-                    leading={itemEmoji(name)}
+                    food={name}
                     label={name}
                     selected={picked.has(name)}
                     tone={status === "expired" ? "danger" : status === "soon" ? "warning" : "default"}

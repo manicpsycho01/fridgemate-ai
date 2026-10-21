@@ -178,7 +178,7 @@ export default function InventoryScreen() {
           <SectionHeader title="Quick add" />
           <View style={styles.chips}>
             {suggestions.map((s) => (
-              <Chip key={s} leading={itemEmoji(s)} label={s} trailingIcon="add" disabled={adding === s} onPress={() => void addItem(s)} />
+              <Chip key={s} food={s} label={s} trailingIcon="add" disabled={adding === s} onPress={() => void addItem(s)} />
             ))}
           </View>
         </View>
