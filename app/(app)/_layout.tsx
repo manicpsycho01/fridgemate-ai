@@ -11,7 +11,7 @@ export default function AppLayout() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.herb} />
       </View>
     );
   }
@@ -19,7 +19,7 @@ export default function AppLayout() {
   if (!session) return <Redirect href="/(auth)/welcome" />;
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="confirm-items" options={{ presentation: "modal" }} />
       <Stack.Screen name="recipe-detail" />
@@ -29,5 +29,5 @@ export default function AppLayout() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.canvas },
 });

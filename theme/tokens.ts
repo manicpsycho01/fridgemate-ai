@@ -34,25 +34,6 @@ export const colors = {
   freo: "#2A66FF",
   onDark: "#FFFFFF",
   overlay: `rgba(${INK},0.42)`,
-  // LEGACY aliases for screens not yet migrated to Fresh Market — delete with `type`/`shadows`/`gradient` below.
-  primary: "#1F4D3F",
-  primaryDeep: "#173B30",
-  primarySoft: "#E4ECE6",
-  primaryMuted: "#D5E2D9",
-  background: "#FBF7F0",
-  surfaceAlt: "#F3EDE2",
-  textPrimary: "#16302B",
-  textSecondary: `rgba(${INK},0.62)`,
-  textTertiary: `rgba(${INK},0.40)`,
-  textOnPrimary: "#FFFFFF",
-  border: `rgba(${INK},0.08)`,
-  separator: `rgba(${INK},0.08)`,
-  success: "#2C7347",
-  successSoft: "#E2F1E6",
-  warning: "#9A6210",
-  warningSoft: "#FCEFD9",
-  danger: "#B53A36",
-  dangerSoft: "#FBE4E2",
 } as const;
 
 /** Loaded in app/_layout.tsx. */
@@ -113,18 +94,3 @@ export const shadow = {
 
 /** Minimum touch target (Apple HIG). */
 export const HIT = 44;
-
-// ---- LEGACY (pre-Fresh Market); removed once every screen uses `typo` / `shadow`. ----
-export const gradient = { primary: ["#1F4D3F", "#173B30"] as const };
-export const type = {
-  largeTitle: { fontSize: 32, lineHeight: 38, fontWeight: "800" as const, letterSpacing: -0.6 },
-  title1: { fontSize: 26, lineHeight: 32, fontWeight: "800" as const, letterSpacing: -0.4 },
-  title2: { fontSize: 21, lineHeight: 27, fontWeight: "700" as const, letterSpacing: -0.2 },
-  title3: { fontSize: 18, lineHeight: 24, fontWeight: "700" as const },
-  headline: { fontSize: 16, lineHeight: 21, fontWeight: "600" as const },
-  body: { fontSize: 16, lineHeight: 22, fontWeight: "400" as const },
-  subhead: { fontSize: 15, lineHeight: 20, fontWeight: "400" as const },
-  footnote: { fontSize: 13, lineHeight: 18, fontWeight: "400" as const },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: "600" as const },
-} as const;
-export const shadows = { card: shadow, raised: shadow } as const;

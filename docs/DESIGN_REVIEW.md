@@ -125,4 +125,4 @@ Implementation log for the Fresh Market redesign (branch `ios-sdk58`, local comm
 - [x] 7. Scan + Confirm (`components/scan/Viewfinder.tsx`: brackets, Freo tip, scan-line sweep, staged messages; confirm checklist with icon tiles; `lib/layoutAnim.ts` removed)
 - [x] 8. History (day groups, colour-block thumbs, skeletons, pull-to-refresh)
 - [x] 9. Settings (grouped iOS list, avatar initial, Learn more inline, two-step delete)
-- [ ] 10. Cleanup (remove legacy tokens, `lib/itemEmoji.ts`, `Card`, unused styles), expo-doctor, iOS export, contact sheet
+- [x] 10. Cleanup (remove legacy tokens, `lib/itemEmoji.ts`, `Card`, unused styles), expo-doctor, iOS export, contact sheet
