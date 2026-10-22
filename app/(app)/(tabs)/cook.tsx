@@ -16,6 +16,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { Text } from "../../../components/ui/Text";
 import { useInventory } from "../../../hooks/useInventory";
 import { suggestRecipes, type RecipeSuggestions } from "../../../lib/aiRecipes";
+import { getMockRecipes } from "../../../lib/recipes";
 import { freshness } from "../../../lib/freshness";
 import { ingredientMatchesItem } from "../../../lib/ingredientMatch";
 import { isStringArray, openRecipe, parseJsonParam } from "../../../lib/recipeRoute";
@@ -56,6 +57,9 @@ export default function CookScreen() {
   const generate = useCallback(
     async (names: string[]) => {
       const id = ++requestId.current;
+      // Instant offline ideas first; AI ideas replace them when they arrive (Gemini can take a while under load).
+      setResult({ recipes: getMockRecipes(names), source: "offline" });
+      setResultKey(names.join(SEP));
       setGenerating(true);
       const inFridge = items.filter((i) => names.includes(i.name.trim()));
       const extra = names.filter((n) => !inFridge.some((i) => i.name.trim() === n));
@@ -183,7 +187,7 @@ export default function CookScreen() {
               </Text>
             ) : null}
 
-            {generating ? (
+            {generating && !result?.recipes.length ? (
               <>
                 <RecipeSkeleton />
                 <RecipeSkeleton />
@@ -196,7 +200,7 @@ export default function CookScreen() {
               result?.recipes.map((r, i) => {
                 const have = r.ingredientsUsed.filter((ing) => pool.some((p) => ingredientMatchesItem(ing, p))).length;
                 return (
-                  <AnimatedEntrance key={`${r.title}-${i}`} index={i}>
+                  <AnimatedEntrance key={`${result.source}-${r.title}-${i}`} index={i}>
                     <RecipeCard recipe={r} uses={have} onPress={() => openRecipe(router, r)} />
                   </AnimatedEntrance>
                 );

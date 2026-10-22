@@ -66,7 +66,7 @@ async function geminiDetect(
   imageBase64: string
 ): Promise<{ items: string[]; err?: string }> {
   // Current Flash alias first; pinned versions as fallbacks (Gemini 1.5 models are retired).
-  const models = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"];
+  const models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash"];
   let lastErr = "Model request failed";
 
   for (const model of models) {

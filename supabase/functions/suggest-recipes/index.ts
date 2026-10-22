@@ -11,14 +11,25 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const MODELS = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"];
+// Current Flash first; Google retires pinned versions regularly (1.5 and 2.0 are gone).
+const MODELS = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"];
+/** Overload / rate-limit statuses worth one quick retry before moving to the next model. */
+const RETRYABLE = new Set([429, 500, 503]);
+/** Recipe ideas don't need deep reasoning: keep "thinking" minimal for speed (field name differs per generation). */
+const thinking = (model: string) =>
+  model.startsWith("gemini-2.5") ? { thinkingBudget: 0 } : model.includes("lite") ? undefined : { thinkingLevel: "low" };
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const MAX_INGREDIENTS = 40;
+
+/** Tolerant ingredient key: case, punctuation and simple plurals ("Eggs" = "egg", "Tomatoes" = "tomato"). */
+const key = (name: string) =>
+  name.toLowerCase().replace(/[^a-z ]/g, "").trim().replace(/(oes|ies|es|s)$/, (m) => (m === "ies" ? "y" : m === "oes" ? "o" : ""));
 
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
 const PROMPT = `You are FridgeMate, a friendly home-cooking assistant.
-Suggest 5 realistic, simple home recipes using ONLY the listed fridge ingredients plus basic pantry staples
+Suggest 4 realistic, simple home recipes using ONLY the listed fridge ingredients plus basic pantry staples
 (salt, pepper, oil, water, sugar, common dried spices). Prefer recipes that use ingredients with few days left
 (lower daysLeft first). Every recipe must use at least one listed ingredient. Keep steps short and clear (3-7 steps).
 "ingredientsUsed" must contain only names from the list (exact spelling). Estimate per-serving macros.`;
@@ -80,39 +91,42 @@ Deno.serve(async (req) => {
   }
   if (ingredients.length === 0) return json({ recipes: [] });
 
-  const key = Deno.env.get("GEMINI_API_KEY");
-  if (!key) return json({ recipes: [], error: "GEMINI_API_KEY is not set on this project." });
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) return json({ recipes: [], error: "GEMINI_API_KEY is not set on this project." });
 
   const list = ingredients.map((i) => `- ${i.name}${i.daysLeft === null ? "" : ` (daysLeft: ${i.daysLeft})`}`).join("\n");
-  let lastErr = "Model request failed";
+  const errors: string[] = [];
   for (const model of MODELS) {
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
+      const call = () => fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: PROMPT }] },
             contents: [{ role: "user", parts: [{ text: `Fridge ingredients:\n${list}` }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 4096, responseMimeType: "application/json", responseSchema: SCHEMA },
+            generationConfig: { temperature: 0.7, maxOutputTokens: 8192, responseMimeType: "application/json", responseSchema: SCHEMA, thinkingConfig: thinking(model) },
           }),
         },
       );
+      let res = await call();
+      if (RETRYABLE.has(res.status)) { await sleep(1200); res = await call(); }
       const out = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message?: string } };
-      if (!res.ok) { lastErr = out.error?.message ?? `${model}: ${res.status}`; continue; }
+      if (!res.ok) { errors.push(`${model}: ${out.error?.message ?? res.status}`); continue; }
       const text = out.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
       const parsed = JSON.parse(text) as { recipes?: unknown[] };
-      const allowed = new Set(ingredients.map((i) => i.name.toLowerCase()));
+      const allowed = new Set(ingredients.map((i) => key(i.name)));
       const recipes = (parsed.recipes ?? []).filter((r) => {
         const x = r as { ingredientsUsed?: unknown };
-        return Array.isArray(x.ingredientsUsed) && x.ingredientsUsed.some((n) => typeof n === "string" && allowed.has(n.toLowerCase()));
+        return Array.isArray(x.ingredientsUsed) && x.ingredientsUsed.some((n) => typeof n === "string" && allowed.has(key(n)));
       });
       if (recipes.length) return json({ recipes, model });
-      lastErr = `${model}: no usable recipes`;
+      errors.push(`${model}: no usable recipes`);
     } catch (e) {
-      lastErr = e instanceof Error ? e.message : String(e);
+      errors.push(`${model}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return json({ recipes: [], error: lastErr });
+  console.error("suggest-recipes failed", errors);
+  return json({ recipes: [], error: errors.join(" | ") });
 });
