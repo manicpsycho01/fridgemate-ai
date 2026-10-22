@@ -98,6 +98,7 @@ export default function ConfirmItemsScreen() {
           <View style={styles.hero}>
             <Text variant="display" accessibilityRole="header">
               Freo found {detected.length} {detected.length === 1 ? "item" : "items"}
+              {mode === "receipt" ? " on your receipt" : ""}
             </Text>
             <Text variant="callout" tone="secondary">
               Untick anything that's wrong, and add what we missed.

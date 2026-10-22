@@ -13,35 +13,41 @@ import { detectFridgeItemsFromUri } from "../../../lib/detectFridge";
 import { success, warning } from "../../../lib/haptics";
 import { spacing } from "../../../theme/tokens";
 
-type Mode = "fridge" | "counter";
+type Mode = "fridge" | "receipt" | "counter";
 type Photo = { uri: string; mimeType: string };
+const isMode = (m: unknown): m is Mode => m === "fridge" || m === "receipt" || m === "counter";
 
-const PROGRESS = ["Looking at your shelves…", "Spotting produce…", "Reading labels…", "Almost there…"];
+const PROGRESS: Record<Mode, string[]> = {
+  fridge: ["Looking at your shelves…", "Spotting produce…", "Reading labels…", "Almost there…"],
+  counter: ["Looking at your counter…", "Spotting ingredients…", "Almost there…"],
+  receipt: ["Reading your receipt…", "Finding the food lines…", "Tidying up names…", "Almost there…"],
+};
 
-const COPY: Record<Mode, { subtitle: string; tip: string }> = {
-  fridge: { subtitle: "Snap your open fridge and AI lists what's inside.", tip: "Open the door wide and use good light — I'll do the rest." },
-  counter: { subtitle: "Snap ingredients on your counter for recipes with exactly those.", tip: "Spread things out so I can see each one." },
+const COPY: Record<Mode, { title: string; subtitle: string; tip: string }> = {
+  fridge: { title: "Scan your fridge", subtitle: "Snap your open fridge and AI lists what's inside.", tip: "Open the door wide and use good light — I'll do the rest." },
+  receipt: { title: "Scan a receipt", subtitle: "Snap your grocery bill and AI adds the food you bought.", tip: "Lay it flat in good light and fit the whole bill in." },
+  counter: { title: "Scan your counter", subtitle: "Snap ingredients on your counter for recipes with exactly those.", tip: "Spread things out so I can see each one." },
 };
 
 export default function ScanScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string }>();
-  const [mode, setMode] = useState<Mode>(params.mode === "counter" ? "counter" : "fridge");
+  const [mode, setMode] = useState<Mode>(isMode(params.mode) ? params.mode : "fridge");
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (params.mode === "counter" || params.mode === "fridge") setMode(params.mode);
+    if (isMode(params.mode)) setMode(params.mode);
   }, [params.mode]);
 
   useEffect(() => {
     if (!detecting) return;
     setStep(0);
-    const t = setInterval(() => setStep((s) => Math.min(s + 1, PROGRESS.length - 1)), 1800);
+    const t = setInterval(() => setStep((s) => Math.min(s + 1, PROGRESS[mode].length - 1)), 1800);
     return () => clearInterval(t);
-  }, [detecting]);
+  }, [detecting, mode]);
 
   function goConfirm(items: string[]) {
     router.push({ pathname: "/(app)/confirm-items", params: { items: JSON.stringify(items), mode } });
@@ -51,7 +57,7 @@ export default function ScanScreen() {
     setError(null);
     setDetecting(true);
     try {
-      const items = await detectFridgeItemsFromUri(p.uri, p.mimeType);
+      const items = await detectFridgeItemsFromUri(p.uri, p.mimeType, mode === "receipt" ? "receipt" : "fridge");
       if (items.length === 0) throw new Error("No food found");
       success();
       goConfirm(items);
@@ -61,7 +67,9 @@ export default function ScanScreen() {
       const msg = e instanceof Error ? e.message : "";
       setError(
         /no (food|items)/i.test(msg)
-          ? "Freo couldn't spot any food in that photo. Try a clearer, brighter shot."
+          ? mode === "receipt"
+            ? "Freo couldn't find any food on that receipt. Try a flatter, sharper photo of the whole bill."
+            : "Freo couldn't spot any food in that photo. Try a clearer, brighter shot."
           : "We couldn't analyse that photo. Check your connection and try again."
       );
     } finally {
@@ -88,11 +96,12 @@ export default function ScanScreen() {
   }
 
   return (
-    <ScrollScreen header={<AppHeader title={mode === "fridge" ? "Scan your fridge" : "Scan your counter"} subtitle={COPY[mode].subtitle} />}>
+    <ScrollScreen header={<AppHeader title={COPY[mode].title} subtitle={COPY[mode].subtitle} />}>
       <SegmentedControl
         options={[
-          { value: "fridge", label: "Fridge → inventory" },
-          { value: "counter", label: "Counter → recipes" },
+          { value: "fridge", label: "Fridge" },
+          { value: "receipt", label: "Receipt" },
+          { value: "counter", label: "Counter" },
         ]}
         value={mode}
         onChange={(m) => {
@@ -101,7 +110,7 @@ export default function ScanScreen() {
         }}
       />
 
-      <Viewfinder photoUri={photo?.uri ?? null} detecting={detecting} progress={PROGRESS[step]} tip={COPY[mode].tip} onCapture={() => void pick("camera")} />
+      <Viewfinder photoUri={photo?.uri ?? null} detecting={detecting} progress={PROGRESS[mode][step] ?? PROGRESS[mode][0]!} tip={COPY[mode].tip} onCapture={() => void pick("camera")} />
 
       {error ? <Banner message={error} action={photo ? "Retry" : undefined} onAction={photo ? () => void detect(photo) : undefined} /> : null}
 

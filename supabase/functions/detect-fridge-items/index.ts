@@ -13,6 +13,17 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+type ScanKind = "fridge" | "receipt";
+
+const RECEIPT_INSTRUCTION =
+  "You read grocery receipts and bills (printed or photographed, any language or store format). " +
+  "Return a JSON object listing only the FOOD and DRINK products bought. Ignore prices, quantities, weights, totals, taxes, " +
+  "discounts, store names, loyalty lines, bags, and non-food items (cleaning, toiletries, household, tobacco). " +
+  "Expand abbreviations into short common grocery names in English, Title Case, singular or natural plural as people say it " +
+  '(e.g. "TOM ROMA 500G" -> "Tomatoes", "AMUL TAAZA 1L" -> "Milk", "BRD WHT SLCD" -> "Bread", "CHKN BRST" -> "Chicken"). ' +
+  "Merge duplicates. If the image is not a receipt or has no food lines, return an empty list. " +
+  'Format exactly: {"items":["item1","item2"]}. No markdown, no extra keys.';
+
 const SYSTEM_INSTRUCTION =
   'You are a fridge inventory assistant. Analyze the provided image and return a JSON object containing a list of food items. ' +
   "Only include raw ingredients or perishables found in a fridge. Ignore non-food items. " +
@@ -63,10 +74,11 @@ function parseItemsJson(text: string): string[] {
 async function geminiDetect(
   apiKey: string,
   mimeType: string,
-  imageBase64: string
+  imageBase64: string,
+  kind: ScanKind
 ): Promise<{ items: string[]; err?: string }> {
-  // Current Flash alias first; pinned versions as fallbacks (Gemini 1.5 models are retired).
-  const models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash"];
+  // Current Flash first; Google retires pinned versions regularly (1.5 and 2.0 are gone). Lite = less congested fallback.
+  const models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"];
   let lastErr = "Model request failed";
 
   for (const model of models) {
@@ -75,7 +87,7 @@ async function geminiDetect(
 
     const geminiBody = {
       systemInstruction: {
-        parts: [{ text: SYSTEM_INSTRUCTION }],
+        parts: [{ text: kind === "receipt" ? RECEIPT_INSTRUCTION : SYSTEM_INSTRUCTION }],
       },
       contents: [
         {
@@ -100,11 +112,17 @@ async function geminiDetect(
     };
 
     try {
-      const gRes = await fetch(url, {
+      const call = () => fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(geminiBody),
       });
+      let gRes = await call();
+      // Overload / rate limit: one quick retry before falling back to the next model.
+      if (gRes.status === 429 || gRes.status === 500 || gRes.status === 503) {
+        await new Promise((r) => setTimeout(r, 1200));
+        gRes = await call();
+      }
 
       const gJson = (await gRes.json()) as {
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
@@ -159,9 +177,9 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Unauthorized", items: [] }, 401);
   }
 
-  let body: { imageBase64?: string; mimeType?: string };
+  let body: { imageBase64?: string; mimeType?: string; kind?: string };
   try {
-    body = (await req.json()) as { imageBase64?: string; mimeType?: string };
+    body = (await req.json()) as { imageBase64?: string; mimeType?: string; kind?: string };
   } catch {
     return jsonResponse({ error: "Invalid JSON body", items: [] }, 400);
   }
@@ -181,7 +199,8 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const { items, err } = await geminiDetect(geminiKey, mimeType, imageBase64);
+  const kind: ScanKind = body.kind === "receipt" ? "receipt" : "fridge";
+  const { items, err } = await geminiDetect(geminiKey, mimeType, imageBase64, kind);
   if (err || items.length === 0) {
     return jsonResponse({
       items: [],

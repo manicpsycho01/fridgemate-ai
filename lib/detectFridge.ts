@@ -10,10 +10,12 @@ type FnResponse = { items?: unknown; error?: string };
  * Shrinks the photo to 1024 px wide JPEG and returns it as base64, to stay under Edge / gateway body limits
  * and speed up Gemini. Falls back to the original file if resizing fails.
  */
-async function prepareImageBase64(localUri: string, fallbackMime: string): Promise<{ base64: string; mimeType: string }> {
+async function prepareImageBase64(localUri: string, fallbackMime: string, kind: ScanKind): Promise<{ base64: string; mimeType: string }> {
+  // Receipts need legible small print; fridge photos only need shapes and colours.
+  const [width, compress] = kind === "receipt" ? [1600, 0.85] : [1024, 0.72];
   try {
-    const image = await ImageManipulator.manipulate(localUri).resize({ width: 1024 }).renderAsync();
-    const saved = await image.saveAsync({ compress: 0.72, format: SaveFormat.JPEG, base64: true });
+    const image = await ImageManipulator.manipulate(localUri).resize({ width }).renderAsync();
+    const saved = await image.saveAsync({ compress, format: SaveFormat.JPEG, base64: true });
     if (saved.base64) return { base64: saved.base64, mimeType: "image/jpeg" };
   } catch {
     // fall through to the original file
@@ -25,12 +27,15 @@ async function prepareImageBase64(localUri: string, fallbackMime: string): Promi
 /**
  * Sends a local image to the `detect-fridge-items` Edge Function (Gemini on the server).
  */
-export async function detectFridgeItemsFromUri(localUri: string, mimeType: string): Promise<string[]> {
+/** What the photo shows: an open fridge / counter (food you can see) or a grocery receipt (printed lines). */
+export type ScanKind = "fridge" | "receipt";
+
+export async function detectFridgeItemsFromUri(localUri: string, mimeType: string, kind: ScanKind = "fridge"): Promise<string[]> {
   if (!isSupabaseConfigured) {
     throw new Error("Supabase is not configured.");
   }
 
-  const { base64, mimeType: uploadMime } = await prepareImageBase64(localUri, mimeType);
+  const { base64, mimeType: uploadMime } = await prepareImageBase64(localUri, mimeType, kind);
 
   if (base64.length > MAX_EDGE_BASE64_CHARS) {
     throw new Error("Image is still too large after compression. Try another photo.");
@@ -40,6 +45,7 @@ export async function detectFridgeItemsFromUri(localUri: string, mimeType: strin
     body: {
       imageBase64: base64,
       mimeType: uploadMime || mimeType || "image/jpeg",
+      kind,
     },
   });
 
