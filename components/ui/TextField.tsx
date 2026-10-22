@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState, type ComponentProps, type Ref } from "react";
-import { Pressable, StyleSheet, TextInput, View, type TextInputInstance, type TextInputProps } from "react-native";
+import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
 import { colors, radius, spacing, typo } from "../../theme/tokens";
 import { Text } from "./Text";
 
@@ -10,7 +10,7 @@ type Props = TextInputProps & {
   error?: string | null;
   /** Renders a show/hide toggle and hides the text by default. */
   password?: boolean;
-  ref?: Ref<TextInputInstance>;
+  ref?: Ref<TextInput>;
 };
 
 /** Large soft input surface with a leading icon; the outline only appears on focus or error. */

@@ -1,6 +1,6 @@
 import { Link, useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type TextInputInstance } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { sendPasswordReset } from "../../lib/account";
 import { friendlyAuthError, isValidEmail } from "../../lib/authErrors";
@@ -40,8 +40,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [banner, setBanner] = useState<{ tone: "error" | "success"; message: string } | null>(configError ? { tone: "error", message: configError } : null);
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const passwordRef = useRef<TextInputInstance>(null);
-  const confirmRef = useRef<TextInputInstance>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
 
   function validate(fields: (keyof Errors)[] = ["email", "password", "confirm"]): Errors {
     const next: Errors = {};

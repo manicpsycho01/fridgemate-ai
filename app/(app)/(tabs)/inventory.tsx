@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ActionSheetIOS, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputInstance } from "react-native";
+import { ActionSheetIOS, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from "react-native-reanimated";
 import { AppHeader } from "../../../components/ui/AppHeader";
 import { Banner } from "../../../components/ui/Banner";
@@ -35,7 +35,7 @@ export default function InventoryScreen() {
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
-  const searchRef = useRef<TextInputInstance>(null);
+  const searchRef = useRef<TextInput>(null);
 
   // "Add item" from Home focuses the search/add field.
   useFocusEffect(

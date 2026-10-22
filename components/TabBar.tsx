@@ -17,7 +17,7 @@ const ICONS: Record<string, [outline: IconName, filled: IconName]> = {
 };
 
 /** Cream tab bar: herb icons, a tomato dot on the active tab, and a raised tomato Scan button in the centre. */
-export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
+export function TabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
   // Keep labels well clear of the home indicator (and give devices without one some breathing room).
   const bottom = Math.max(insets.bottom, spacing.sm);
   return (
@@ -27,8 +27,8 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
         const title = descriptors[route.key]?.options.title ?? route.name;
         const onPress = () => {
           tap();
-          const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-          if (!focused && !event.defaultPrevented) navigateToTab(route.key);
+          const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+          if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
         };
 
         if (route.name === "scan") {
