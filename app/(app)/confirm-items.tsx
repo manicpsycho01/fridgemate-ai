@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import Animated, { FadeInDown, LinearTransition, useReducedMotion } from "react-native-reanimated";
+import Animated, { LinearTransition, useReducedMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
@@ -122,7 +122,7 @@ export default function ConfirmItemsScreen() {
             {list.map((name, idx) => {
               const on = selected.has(name);
               return (
-                <Animated.View key={name} entering={reduced ? undefined : FadeInDown.springify().damping(18).delay(Math.min(idx, 12) * 40)} layout={reduced ? undefined : LinearTransition}>
+                <Animated.View key={name} layout={reduced ? undefined : LinearTransition.duration(200)}>
                   <Pressable
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: on }}

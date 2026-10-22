@@ -3,7 +3,6 @@ import { useCallback, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, View } from "react-native";
 import { RecipeBlock } from "../../../components/RecipeCard";
-import { AnimatedEntrance } from "../../../components/ui/AnimatedEntrance";
 import { AppHeader } from "../../../components/ui/AppHeader";
 import { Banner } from "../../../components/ui/Banner";
 import { Button } from "../../../components/ui/Button";
@@ -91,7 +90,7 @@ export default function HistoryScreen() {
         </EmptyState>
       ) : (
         groups.map((g, gi) => (
-          <AnimatedEntrance key={g.day} index={gi} style={styles.group}>
+          <View key={g.day} style={styles.group}>
             <Text variant="heading" accessibilityRole="header">
               {g.day}
             </Text>
@@ -117,7 +116,7 @@ export default function HistoryScreen() {
                 </Pressable>
               ))}
             </View>
-          </AnimatedEntrance>
+          </View>
         ))
       )}
     </ScrollScreen>

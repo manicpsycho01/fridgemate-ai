@@ -7,7 +7,6 @@ import { RecipeCard } from "../../../components/RecipeCard";
 import { AppHeader } from "../../../components/ui/AppHeader";
 import { Banner } from "../../../components/ui/Banner";
 import { Button } from "../../../components/ui/Button";
-import { AnimatedEntrance } from "../../../components/ui/AnimatedEntrance";
 import { Chip } from "../../../components/ui/Chip";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { ScrollScreen } from "../../../components/ui/Screen";
@@ -200,9 +199,9 @@ export default function CookScreen() {
               result?.recipes.map((r, i) => {
                 const have = r.ingredientsUsed.filter((ing) => pool.some((p) => ingredientMatchesItem(ing, p))).length;
                 return (
-                  <AnimatedEntrance key={`${result.source}-${r.title}-${i}`} index={i}>
+                  <View key={`${result.source}-${r.title}-${i}`}>
                     <RecipeCard recipe={r} uses={have} onPress={() => openRecipe(router, r)} />
-                  </AnimatedEntrance>
+                  </View>
                 );
               })
             )}

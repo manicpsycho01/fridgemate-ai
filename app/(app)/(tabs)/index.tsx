@@ -1,10 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { FridgeSummary } from "../../../components/home/FridgeSummary";
 import { UseFirstCard } from "../../../components/home/UseFirstCard";
-import { AnimatedEntrance } from "../../../components/ui/AnimatedEntrance";
 import { Banner } from "../../../components/ui/Banner";
 import { BottomSheet } from "../../../components/ui/BottomSheet";
 import { Button } from "../../../components/ui/Button";
@@ -24,7 +23,7 @@ import { getUserEssentials, setUserEssentials } from "../../../lib/essentials";
 import { freshness, useFirst } from "../../../lib/freshness";
 import { select, success } from "../../../lib/haptics";
 import { ingredientMatchesItem } from "../../../lib/ingredientMatch";
-import { addManyInventoryItems, stockCountContribution } from "../../../lib/inventory";
+import { addManyInventoryItems, essentialTarget, stockCountContribution, updateInventoryQuantity } from "../../../lib/inventory";
 import { openCookWith } from "../../../lib/recipeRoute";
 import { useAuth } from "../../../providers/AuthContext";
 import { colors, fonts, radius, spacing } from "../../../theme/tokens";
@@ -37,8 +36,10 @@ export default function HomeScreen() {
   const [draft, setDraft] = useState<Set<string>>(new Set());
   const [sheetOpen, setSheetOpen] = useState(false);
   const [addingSample, setAddingSample] = useState(false);
-  /** Shopping-list ticks for this visit (the list itself clears once items are back in the fridge). */
+  /** Items being marked as bought (ticked while the fridge updates, then they drop off the list). */
   const [ticked, setTicked] = useState<Set<string>>(new Set());
+  /** Last purchase, so a mis-tap can be undone. */
+  const [bought, setBought] = useState<{ name: string; added: number } | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,7 +58,7 @@ export default function HomeScreen() {
       essentials
         .map((name) => {
           const have = items.filter((i) => ingredientMatchesItem(name, i.name)).reduce((s, i) => s + stockCountContribution(i), 0);
-          return { name, have, needed: Math.max(0, ESSENTIAL_MIN_QTY - have) };
+          return { name, have, needed: Math.max(0, essentialTarget(name, ESSENTIAL_MIN_QTY) - have) };
         })
         .filter((x) => x.needed > 0),
     [essentials, items]
@@ -90,14 +91,45 @@ export default function HomeScreen() {
     }
   }
 
-  function toggleTick(name: string) {
+  // The undo offer fades after a few seconds.
+  useEffect(() => {
+    if (!bought) return;
+    const t = setTimeout(() => setBought(null), 6000);
+    return () => clearTimeout(t);
+  }, [bought]);
+
+  /** Tapping an essential = "I bought it": top the fridge up to the essential level, so it leaves the list. */
+  async function markBought(name: string, needed: number) {
+    if (ticked.has(name)) return;
     select();
-    setTicked((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
+    setTicked((prev) => new Set(prev).add(name));
+    try {
+      await addManyInventoryItems(Array.from({ length: needed }, () => name), "shopping_list");
+      success();
+      setBought({ name, added: needed });
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update your fridge.");
+    } finally {
+      setTicked((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
+    }
+  }
+
+  async function undoBought() {
+    if (!bought) return;
+    const row = items.find((i) => ingredientMatchesItem(bought.name, i.name));
+    setBought(null);
+    if (!row) return;
+    try {
+      await updateInventoryQuantity(row.id, row.quantity - bought.added);
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not undo.");
+    }
   }
 
   const name = displayName(user);
@@ -143,19 +175,19 @@ export default function HomeScreen() {
           </View>
         </View>
       ) : empty ? (
-        <AnimatedEntrance>
+        <View>
           <EmptyState title="Your fridge is empty" message="Snap a photo and Freo will list what's inside." mascotSize={132}>
             <Button variant="hero" label="Scan fridge" icon="camera" onPress={goScan} />
             <Button label="Try with sample items" variant="ghost" loading={addingSample} onPress={() => void addSampleItems()} />
           </EmptyState>
-        </AnimatedEntrance>
+        </View>
       ) : (
         <>
-          <AnimatedEntrance index={0}>
+          <View>
             <FridgeSummary counts={counts} />
-          </AnimatedEntrance>
+          </View>
 
-          <AnimatedEntrance index={1}>
+          <View>
             <SectionHeader title="Use first" action={urgent.length ? "Cook with these" : undefined} onAction={() => openCookWith(router, urgent.map((u) => u.name))} />
             {urgent.length === 0 ? (
               <View style={styles.allFresh}>
@@ -171,18 +203,25 @@ export default function HomeScreen() {
                 ))}
               </ScrollView>
             )}
-          </AnimatedEntrance>
+          </View>
 
-          <AnimatedEntrance index={2} style={styles.cta}>
+          <View style={styles.cta}>
             <Button variant="hero" label="Scan fridge" icon="camera" onPress={goScan} />
             <Button variant="ghost" label="Add an item" icon="add" size="md" onPress={goAdd} />
-          </AnimatedEntrance>
+          </View>
         </>
       )}
 
       {!loading ? (
-        <AnimatedEntrance index={3}>
+        <View>
           <SectionHeader title="Shopping list" action={essentials.length ? "Edit" : undefined} onAction={openEssentials} />
+          {bought ? (
+            <Banner tone="success" message={`Added ${bought.name} to your fridge.`} action="Undo" onAction={() => void undoBought()} />
+          ) : shopping.length > 0 ? (
+            <Text variant="caption" tone="secondary">
+              Tap an item once you've bought it — we'll add it to your fridge.
+            </Text>
+          ) : null}
           {essentials.length === 0 ? (
             <View style={styles.shopEmpty}>
               <Text variant="callout" tone="secondary">
@@ -205,8 +244,9 @@ export default function HomeScreen() {
                   key={s.name}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: done }}
-                  accessibilityLabel={`${s.name}, ${s.have === 0 ? "out" : `${s.have} left`}`}
-                  onPress={() => toggleTick(s.name)}
+                  accessibilityLabel={`${s.name}, ${s.have === 0 ? "none left" : `${s.have} left`}`}
+                  accessibilityHint="Marks it as bought and adds it to your fridge"
+                  onPress={() => void markBought(s.name, s.needed)}
                   style={[styles.shopRow, i > 0 && styles.hairline]}
                 >
                   <View style={[styles.check, done && styles.checkOn]}>{done ? <Ionicons name="checkmark" size={16} color={colors.onDark} /> : null}</View>
@@ -215,20 +255,20 @@ export default function HomeScreen() {
                     {s.name}
                   </Text>
                   <Text variant="caption" style={{ color: s.have === 0 ? colors.pastInk : colors.soonInk }}>
-                    {s.have === 0 ? "Out" : `${s.have} left`}
+                    {s.have === 0 ? "None left" : `${s.have} left`}
                   </Text>
                 </Pressable>
               );
             })
           )}
-        </AnimatedEntrance>
+        </View>
       ) : null}
 
       <BottomSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
         title="Your essentials"
-        subtitle={`We'll add these to your shopping list when you have fewer than ${ESSENTIAL_MIN_QTY}.`}
+        subtitle="We'll add these to your shopping list when they run out or run low."
         footer={<Button label="Save essentials" onPress={() => void saveEssentials()} disabled={draft.size === 0} />}
       >
         <View style={styles.sheetChips}>

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { ActionSheetIOS, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from "react-native-reanimated";
+import Animated, { FadeOut, LinearTransition, useReducedMotion } from "react-native-reanimated";
 import { AppHeader } from "../../../components/ui/AppHeader";
 import { Banner } from "../../../components/ui/Banner";
 import { Button } from "../../../components/ui/Button";
@@ -187,7 +187,7 @@ export default function InventoryScreen() {
         </Text>
       ) : (
         sections.map((s) => (
-          <Animated.View key={s.key} layout={reduced ? undefined : LinearTransition.springify().damping(20)}>
+          <Animated.View key={s.key} layout={reduced ? undefined : LinearTransition.duration(200)}>
             <SectionHeader title={s.title} />
             {s.rows.map((r, idx) => (
               <ItemRow
@@ -210,9 +210,8 @@ function ItemRow({ row, first, reduced, onQuantity, onMenu }: { row: Row; first:
   const { item, fresh } = row;
   return (
     <Animated.View
-      entering={reduced ? undefined : FadeIn.duration(220)}
       exiting={reduced ? undefined : FadeOut.duration(180)}
-      layout={reduced ? undefined : LinearTransition.springify().damping(20)}
+      layout={reduced ? undefined : LinearTransition.duration(200)}
     >
       <Pressable
         onLongPress={onMenu}

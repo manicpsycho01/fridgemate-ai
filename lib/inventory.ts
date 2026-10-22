@@ -23,6 +23,14 @@ export function isSingleUnitInventoryItem(name: string): boolean {
   return SINGLE_UNIT_NAMES_NORMALIZED.has(normalizeItemName(name));
 }
 
+/**
+ * How many of an essential you want at home before it goes on the shopping list:
+ * single-unit staples (a carton of milk, a loaf) just need to be there; countable items need `minQty`.
+ */
+export function essentialTarget(name: string, minQty: number): number {
+  return isSingleUnitInventoryItem(name) ? 1 : minQty;
+}
+
 /** How much an inventory row contributes to “how many you have” for essentials / shopping. */
 export function stockCountContribution(item: InventoryItem): number {
   if (isSingleUnitInventoryItem(item.name)) return Math.min(1, Math.max(0, item.quantity));

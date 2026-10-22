@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RecipeBlock } from "../../components/RecipeCard";
-import { AnimatedEntrance } from "../../components/ui/AnimatedEntrance";
 import { Banner } from "../../components/ui/Banner";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
@@ -133,7 +132,7 @@ export default function RecipeDetailScreen() {
         </RecipeBlock>
 
         <View style={styles.inner}>
-          <AnimatedEntrance index={0} style={styles.metaRow}>
+          <View style={styles.metaRow}>
             {meta.map((t) => (
               <View key={t.label} style={styles.meta}>
                 <Text variant="label" tone="tertiary">
@@ -144,7 +143,7 @@ export default function RecipeDetailScreen() {
                 </Text>
               </View>
             ))}
-          </AnimatedEntrance>
+          </View>
 
           {recipe.description ? (
             <Text variant="body" tone="secondary">
