@@ -98,6 +98,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   async function onForgotPassword() {
     if (!isValidEmail(email)) {
+      setBanner(null);
       setErrors({ email: "Enter your email above and we'll send a reset link." });
       return;
     }
