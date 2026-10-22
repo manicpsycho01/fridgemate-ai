@@ -1,24 +1,50 @@
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
-import { useState, type ComponentProps } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState, type ComponentProps, type ReactNode } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { AppHeader } from "../../components/ui/AppHeader";
 import { Banner } from "../../components/ui/Banner";
-import { Card } from "../../components/ui/Card";
 import { FreoMascot } from "../../components/ui/FreoMascot";
 import { ScrollScreen } from "../../components/ui/Screen";
+import { Surface } from "../../components/ui/Surface";
+import { Text } from "../../components/ui/Text";
 import { Wordmark } from "../../components/ui/Wordmark";
 import { deleteAccount } from "../../lib/account";
 import { confirm } from "../../lib/confirm";
 import { tap, warning } from "../../lib/haptics";
 import { useAuth } from "../../providers/AuthContext";
-import { colors, spacing, type } from "../../theme/tokens";
+import { displayName } from "../../lib/displayName";
+import { colors, fonts, radius, spacing } from "../../theme/tokens";
 
-type RowProps = { icon: ComponentProps<typeof Ionicons>["name"]; label: string; onPress: () => void; destructive?: boolean; busy?: boolean };
+type RowProps = {
+  icon?: ComponentProps<typeof Ionicons>["name"];
+  label: string;
+  value?: string;
+  onPress?: () => void;
+  destructive?: boolean;
+  busy?: boolean;
+  first?: boolean;
+};
 
-function Row({ icon, label, onPress, destructive, busy }: RowProps) {
-  const color = destructive ? colors.danger : colors.textPrimary;
+function Row({ icon, label, value, onPress, destructive, busy, first }: RowProps) {
+  const tone = destructive ? "danger" : "primary";
+  const body = (
+    <>
+      {icon ? <Ionicons name={icon} size={20} color={destructive ? colors.pastInk : colors.herb} /> : null}
+      <Text variant="body" tone={tone} style={[styles.flex, destructive && styles.center]}>
+        {label}
+      </Text>
+      {value ? (
+        <Text variant="callout" tone="secondary" numeric>
+          {value}
+        </Text>
+      ) : null}
+      {busy ? <ActivityIndicator color={colors.pastInk} /> : onPress && !destructive ? <Ionicons name="chevron-forward" size={18} color={colors.ink3} /> : null}
+    </>
+  );
+  const style = [styles.row, !first && styles.hairline];
+  if (!onPress) return <View style={style}>{body}</View>;
   return (
     <Pressable
       accessibilityRole="button"
@@ -28,12 +54,26 @@ function Row({ icon, label, onPress, destructive, busy }: RowProps) {
         tap();
         onPress();
       }}
-      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.surfaceAlt }]}
+      style={({ pressed }) => [...style, pressed && { backgroundColor: colors.sunk }]}
     >
-      <Ionicons name={icon} size={20} color={color} />
-      <Text style={[styles.rowLabel, { color }]}>{label}</Text>
-      {busy ? <ActivityIndicator color={color} /> : <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />}
+      {body}
     </Pressable>
+  );
+}
+
+function Group({ label, children, footer }: { label?: string; children: ReactNode; footer?: ReactNode }) {
+  return (
+    <View style={styles.group}>
+      {label ? (
+        <Text variant="label" tone="secondary" style={styles.groupLabel}>
+          {label}
+        </Text>
+      ) : null}
+      <Surface padded={false} style={styles.groupCard}>
+        {children}
+      </Surface>
+      {footer}
+    </View>
   );
 }
 
@@ -42,6 +82,7 @@ export default function SettingsScreen() {
   const { user, signOut } = useAuth();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [learnMore, setLearnMore] = useState(false);
   const version = Constants.expoConfig?.version ?? "1.0.0";
 
   async function onSignOut() {
@@ -78,66 +119,85 @@ export default function SettingsScreen() {
     }
   }
 
+  const name = displayName(user);
+
   return (
-    <ScrollScreen edgeBottom>
-      <AppHeader title="Settings" onBack={() => (router.canGoBack() ? router.back() : router.replace("/(app)/(tabs)"))} />
-
-      <View>
-        <Text style={styles.groupLabel}>Account</Text>
-        <Card padded={false}>
-          <View style={styles.row}>
-            <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowCaption}>Signed in as</Text>
-              <Text style={styles.email} numberOfLines={1}>
-                {user?.email ?? "—"}
-              </Text>
-            </View>
+    <ScrollScreen edgeBottom header={<AppHeader title="Settings" onBack={() => (router.canGoBack() ? router.back() : router.replace("/(app)/(tabs)"))} />}>
+      <Group label="Account">
+        <View style={[styles.row, styles.account]}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText} maxFontSizeMultiplier={1}>
+              {(name ?? user?.email ?? "?").charAt(0).toUpperCase()}
+            </Text>
           </View>
-          <View style={styles.divider} />
-          <Row icon="log-out-outline" label="Sign out" onPress={() => void onSignOut()} />
-        </Card>
-      </View>
+          <View style={styles.flex}>
+            {name ? <Text variant="bodyStrong">{name}</Text> : null}
+            <Text variant="callout" tone="secondary" numberOfLines={1}>
+              {user?.email ?? "—"}
+            </Text>
+          </View>
+        </View>
+        <Row icon="log-out-outline" label="Sign out" onPress={() => void onSignOut()} />
+      </Group>
 
-      <View>
-        <Text style={styles.groupLabel}>How freshness is estimated</Text>
-        <Card>
-          <Text style={styles.body}>
-            FridgeMate AI estimates how long each item keeps from the day you added it, using typical fridge shelf life for that kind of food (for example
-            about 2 days for fresh fish, 6 for milk, 3 weeks for eggs). It's a friendly guide, not a safety guarantee. Always check the label, look and smell
-            before eating.
+      <Group label="About">
+        <View style={[styles.row, styles.note]}>
+          <Ionicons name="leaf-outline" size={20} color={colors.herb} style={styles.noteIcon} />
+          <View style={styles.flex}>
+            <Text variant="body">Freshness is an estimate, not a guarantee.</Text>
+            {learnMore ? (
+              <Text variant="callout" tone="secondary" style={styles.more}>
+                We estimate how long each item keeps from the day you added it, using typical fridge shelf life — about 2 days for fresh fish, 6 for milk, 3 weeks
+                for eggs. Always check the label, look and smell before eating.
+              </Text>
+            ) : null}
+            <Pressable accessibilityRole="button" accessibilityState={{ expanded: learnMore }} onPress={() => setLearnMore((v) => !v)} style={styles.learn}>
+              <Text variant="calloutStrong" tone="herb">
+                {learnMore ? "Show less" : "Learn more"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+        <Row icon="information-circle-outline" label="Version" value={version} />
+      </Group>
+
+      <Group
+        label="Privacy"
+        footer={
+          <Text variant="caption" tone="tertiary" style={styles.groupFooter}>
+            Permanently removes your account, fridge and cooking history.
           </Text>
-        </Card>
-      </View>
-
-      <View>
-        <Text style={styles.groupLabel}>Danger zone</Text>
-        <Card padded={false}>
-          <Row icon="trash-outline" label={deleting ? "Deleting account…" : "Delete account"} destructive busy={deleting} onPress={() => void onDelete()} />
-        </Card>
-        <Text style={styles.footnote}>Permanently removes your account and all of your data.</Text>
-      </View>
+        }
+      >
+        <Row icon="lock-closed-outline" label="Your fridge and history are private to your account." first />
+        <Row label={deleting ? "Deleting account…" : "Delete account"} destructive busy={deleting} onPress={() => void onDelete()} />
+      </Group>
 
       {error ? <Banner message={error} /> : null}
 
       <View style={styles.about}>
-        <FreoMascot size={64} />
+        <FreoMascot size={56} />
         <Wordmark size={17} />
-        <Text style={styles.version}>Version {version}</Text>
       </View>
     </ScrollScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  groupLabel: { ...type.footnote, fontWeight: "600", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: spacing.xs, marginLeft: spacing.md },
+  flex: { flex: 1 },
+  center: { textAlign: "center" },
+  group: { gap: spacing.xs },
+  groupLabel: { marginLeft: spacing.md },
+  groupCard: { overflow: "hidden" },
+  groupFooter: { marginHorizontal: spacing.md },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 52, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  rowLabel: { ...type.body, fontWeight: "500", flex: 1 },
-  rowCaption: { ...type.caption, fontWeight: "500", color: colors.textSecondary },
-  email: { ...type.body, fontWeight: "600", color: colors.textPrimary },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.separator, marginLeft: spacing.md + 20 + spacing.sm },
-  body: { ...type.subhead, color: colors.textSecondary },
-  footnote: { ...type.footnote, color: colors.textTertiary, marginTop: spacing.xs, marginLeft: spacing.md },
-  about: { alignItems: "center", gap: spacing.xxs, marginTop: spacing.md },
-  version: { ...type.footnote, color: colors.textTertiary },
+  hairline: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.lineStrong },
+  account: { minHeight: 68 },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.herb, alignItems: "center", justifyContent: "center" },
+  avatarText: { fontFamily: fonts.display, fontSize: 20, lineHeight: 24, color: colors.onDark },
+  note: { alignItems: "flex-start", paddingBottom: spacing.xxs },
+  noteIcon: { marginTop: 2 },
+  more: { marginTop: spacing.xs },
+  learn: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },
+  about: { alignItems: "center", gap: spacing.xxs, marginTop: spacing.sm, opacity: 0.9 },
 });

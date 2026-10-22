@@ -123,6 +123,6 @@ Implementation log for the Fresh Market redesign (branch `ios-sdk58`, local comm
 - [x] 5. Fridge (sticky search via `ScrollScreen sticky`, urgency sections, long-press / … menu, reanimated layout transitions)
 - [x] 6. Cook + Recipe detail (`RecipeCard`/`RecipeBlock` colour blocks, `components/cook/AiLabel` shimmer, removable chips, You have / You'll also need, sticky tomato I cooked this)
 - [x] 7. Scan + Confirm (`components/scan/Viewfinder.tsx`: brackets, Freo tip, scan-line sweep, staged messages; confirm checklist with icon tiles; `lib/layoutAnim.ts` removed)
-- [ ] 8. History
-- [ ] 9. Settings
+- [x] 8. History (day groups, colour-block thumbs, skeletons, pull-to-refresh)
+- [x] 9. Settings (grouped iOS list, avatar initial, Learn more inline, two-step delete)
 - [ ] 10. Cleanup (remove legacy tokens, `lib/itemEmoji.ts`, `Card`, unused styles), expo-doctor, iOS export, contact sheet

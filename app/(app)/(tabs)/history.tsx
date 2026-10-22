@@ -1,17 +1,19 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { RecipeCard } from "../../../components/RecipeCard";
+import { Ionicons } from "@expo/vector-icons";
+import { Pressable, StyleSheet, View } from "react-native";
+import { RecipeBlock } from "../../../components/RecipeCard";
+import { AnimatedEntrance } from "../../../components/ui/AnimatedEntrance";
 import { AppHeader } from "../../../components/ui/AppHeader";
 import { Banner } from "../../../components/ui/Banner";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { ScrollScreen } from "../../../components/ui/Screen";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { Text } from "../../../components/ui/Text";
 import { openRecipe } from "../../../lib/recipeRoute";
 import { getRecipeHistory } from "../../../lib/recipes";
-import { colors, spacing, type } from "../../../theme/tokens";
+import { colors, radius, spacing } from "../../../theme/tokens";
 import type { RecipeHistoryEntry } from "../../../types";
 
 function dayLabel(iso: string, now = new Date()): string {
@@ -66,39 +68,70 @@ export default function HistoryScreen() {
         await load();
         setRefreshing(false);
       }}
+      header={<AppHeader title="History" subtitle={entries.length ? `${entries.length} ${entries.length === 1 ? "meal" : "meals"} cooked` : "Meals you've cooked with FridgeMate AI."} />}
     >
-      <AppHeader title="History" subtitle={entries.length ? `${entries.length} ${entries.length === 1 ? "meal" : "meals"} cooked` : "Meals you've cooked with FridgeMate AI."} />
-
       {error ? <Banner message={error} action="Retry" onAction={() => void load()} /> : null}
 
       {loading ? (
-        <Card style={{ gap: spacing.sm }}>
-          <Skeleton width="60%" height={18} />
-          <Skeleton width="40%" height={12} />
-        </Card>
+        <View style={styles.group}>
+          <Skeleton width={110} height={20} />
+          {[0, 1, 2].map((k) => (
+            <View key={k} style={styles.row}>
+              <Skeleton width={56} height={56} rounded={radius.md} />
+              <View style={styles.text}>
+                <Skeleton width="70%" height={16} />
+                <Skeleton width="40%" height={12} />
+              </View>
+            </View>
+          ))}
+        </View>
       ) : entries.length === 0 ? (
-        <EmptyState title="No meals yet" message="When you cook a recipe, tap “I cooked this” and it will show up here.">
+        <EmptyState title="No meals yet" message="Cook a recipe, tap “I cooked this”, and it lands here.">
           <Button label="Find something to cook" icon="restaurant-outline" onPress={() => router.push("/(app)/(tabs)/cook")} />
         </EmptyState>
       ) : (
-        groups.map((g) => (
-          <View key={g.day} style={styles.group}>
-            <Text style={styles.day}>{g.day}</Text>
-            {g.items.map((e) => (
-              <RecipeCard
-                key={e.id}
-                recipe={e.recipe_json}
-                onPress={() => openRecipe(router, e.recipe_json)}
-              />
-            ))}
-          </View>
+        groups.map((g, gi) => (
+          <AnimatedEntrance key={g.day} index={gi} style={styles.group}>
+            <Text variant="heading" accessibilityRole="header">
+              {g.day}
+            </Text>
+            <View>
+              {g.items.map((e, i) => (
+                <Pressable
+                  key={e.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${e.recipe_json.title}, cooked at ${timeOf(e.created_at)}`}
+                  onPress={() => openRecipe(router, e.recipe_json)}
+                  style={({ pressed }) => [styles.row, i > 0 && styles.hairline, pressed && { opacity: 0.6 }]}
+                >
+                  <RecipeBlock recipe={e.recipe_json} height={56} glyphSize={44} style={styles.thumb} />
+                  <View style={styles.text}>
+                    <Text variant="bodyStrong" numberOfLines={2}>
+                      {e.recipe_json.title}
+                    </Text>
+                    <Text variant="caption" tone="secondary" numeric>
+                      {timeOf(e.created_at)}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.ink3} />
+                </Pressable>
+              ))}
+            </View>
+          </AnimatedEntrance>
         ))
       )}
     </ScrollScreen>
   );
 }
 
+function timeOf(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
 const styles = StyleSheet.create({
-  group: { gap: spacing.sm },
-  day: { ...type.footnote, fontWeight: "700", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.5 },
+  group: { gap: spacing.xs },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 72, paddingVertical: spacing.xs },
+  hairline: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.lineStrong },
+  thumb: { width: 56, borderRadius: radius.md, padding: 0 },
+  text: { flex: 1, gap: 2 },
 });
