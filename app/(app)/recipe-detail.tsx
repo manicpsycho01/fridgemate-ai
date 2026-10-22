@@ -74,8 +74,7 @@ export default function RecipeDetailScreen() {
     setSaving(true);
     try {
       if (anyUsed) {
-        await saveRecipeToHistory(recipe!);
-        await applyPerIngredientRecipeUsage(entries);
+        await Promise.all([saveRecipeToHistory(recipe!), applyPerIngredientRecipeUsage(entries)]);
       }
       success();
       setSheetOpen(false);

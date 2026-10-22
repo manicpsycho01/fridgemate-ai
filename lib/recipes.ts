@@ -501,11 +501,12 @@ export function getMockRecipes(inventoryItemNames: string[]): Recipe[] {
 
 export async function saveRecipeToHistory(recipe: Recipe): Promise<void> {
   if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
-  const { data, error: userError } = await supabase.auth.getUser();
-  if (userError || !data.user) throw new Error("You must be signed in.");
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  if (!user) throw new Error("You must be signed in.");
 
   const { error } = await supabase.from("recipe_history").insert({
-    user_id: data.user.id,
+    user_id: user.id,
     recipe_json: recipe,
   });
   if (error) throw error;
@@ -513,13 +514,14 @@ export async function saveRecipeToHistory(recipe: Recipe): Promise<void> {
 
 export async function getRecipeHistory(): Promise<RecipeHistoryEntry[]> {
   if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
-  const { data, error: userError } = await supabase.auth.getUser();
-  if (userError || !data.user) throw new Error("You must be signed in.");
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  if (!user) throw new Error("You must be signed in.");
 
   const { data: rows, error } = await supabase
     .from("recipe_history")
     .select("*")
-    .eq("user_id", data.user.id)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   if (error) throw error;

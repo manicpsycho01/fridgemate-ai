@@ -33,9 +33,11 @@ async function requireUserId(): Promise<string> {
   if (!isSupabaseConfigured) {
     throw new Error("Supabase is not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to .env");
   }
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) throw new Error("You must be signed in.");
-  return data.user.id;
+  // Local session read (no network round trip); row-level security still enforces ownership on the server.
+  const { data } = await supabase.auth.getSession();
+  const id = data.session?.user.id;
+  if (!id) throw new Error("You must be signed in.");
+  return id;
 }
 
 function toInventoryItem(row: Partial<InventoryItem> & { [k: string]: unknown }): InventoryItem {
@@ -115,45 +117,60 @@ export async function clearInventory(): Promise<void> {
 }
 
 export async function addManyInventoryItems(names: string[], source: string): Promise<void> {
+  const userId = await requireUserId();
   const existing = await getInventory();
   const byNorm = new Map(existing.map((i) => [normalizeItemName(i.name), i]));
+  const nextQty = new Map<string, number>(); // existing row id -> new quantity
+  const inserts = new Map<string, { name: string; quantity: number }>();
 
   for (const raw of names) {
-    const trimmed = raw.trim();
-    if (!trimmed) continue;
-    const norm = normalizeItemName(trimmed);
-    const existingItem = byNorm.get(norm);
-
-    if (existingItem) {
-      if (!isSingleUnitInventoryItem(existingItem.name)) {
-        await updateInventoryQuantity(existingItem.id, existingItem.quantity + 1);
-        byNorm.set(norm, { ...existingItem, quantity: existingItem.quantity + 1 });
-      }
-    } else {
-      await addInventoryItem(trimmed, source, 1);
-      const latest = await getInventory();
-      const inserted = latest.find((x) => normalizeItemName(x.name) === norm);
-      if (inserted) byNorm.set(norm, inserted);
+    const name = raw.trim();
+    if (!name) continue;
+    const norm = normalizeItemName(name);
+    const found = byNorm.get(norm);
+    if (found) {
+      if (!isSingleUnitInventoryItem(found.name)) nextQty.set(found.id, (nextQty.get(found.id) ?? found.quantity) + 1);
+      continue;
     }
+    const pending = inserts.get(norm);
+    if (!pending) inserts.set(norm, { name, quantity: 1 });
+    else if (!isSingleUnitInventoryItem(name)) pending.quantity += 1;
   }
+
+  // One insert for all new items + parallel quantity updates (was 3 round trips per item).
+  const tasks: Promise<void>[] = [...nextQty].map(([id, quantity]) => updateInventoryQuantity(id, quantity));
+  if (inserts.size) {
+    tasks.push(
+      (async () => {
+        const rows = [...inserts.values()].map((i) => ({ user_id: userId, name: i.name, quantity: i.quantity, source }));
+        const { error } = await supabase.from("inventory_items").insert(rows);
+        if (error) throw error;
+      })()
+    );
+  }
+  await Promise.all(tasks);
 }
 
 /**
  * Apply inventory changes for each recipe ingredient the user reported.
- * Refetches inventory between steps so duplicate lines (e.g. two "Eggs" rows) can hit the same row twice.
+ * Reads the fridge once, works out every change in memory (so two recipe lines can hit the same row),
+ * then writes all changes in parallel — instead of a refetch + write per ingredient.
  */
 export async function applyPerIngredientRecipeUsage(entries: IngredientUsageEntry[]): Promise<void> {
+  const inventory = await getInventory();
+  const qty = new Map(inventory.map((i) => [i.id, i.quantity]));
   for (const { recipeIngredient, action } of entries) {
     if (action === "didnt_use") continue;
-
-    const inventory = await getInventory();
-    const match = inventory.find((i) => ingredientMatchesItem(recipeIngredient, i.name));
+    const match = inventory.find((i) => (qty.get(i.id) ?? 0) > 0 && ingredientMatchesItem(recipeIngredient, i.name));
     if (!match) continue;
-
-    if (action === "used_all") {
-      await removeInventoryItem(match.id);
-    } else {
-      await updateInventoryQuantity(match.id, match.quantity - 1);
-    }
+    qty.set(match.id, action === "used_all" ? 0 : (qty.get(match.id) ?? 0) - 1);
   }
+  await Promise.all(
+    inventory
+      .filter((i) => qty.get(i.id) !== i.quantity)
+      .map((i) => {
+        const q = qty.get(i.id) ?? 0;
+        return q <= 0 ? removeInventoryItem(i.id) : updateInventoryQuantity(i.id, q);
+      })
+  );
 }
