@@ -18,3 +18,10 @@ export async function sendPasswordReset(email: string): Promise<void> {
   const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
   if (error) throw error;
 }
+
+/** Sets a new password for the signed-in user (used from Settings; no email link needed). */
+export async function changePassword(newPassword: string): Promise<void> {
+  if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw new Error(/same|different/i.test(error.message) ? "Choose a password you haven't used before." : error.message);
+}

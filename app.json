@@ -45,7 +45,8 @@
           "backgroundColor": "#FBF7F0"
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-asset"
     ]
   }
 }

@@ -5,14 +5,17 @@ import { useState, type ComponentProps, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { AppHeader } from "../../components/ui/AppHeader";
 import { Banner } from "../../components/ui/Banner";
+import { BottomSheet } from "../../components/ui/BottomSheet";
+import { Button } from "../../components/ui/Button";
+import { TextField } from "../../components/ui/TextField";
 import { FreoMascot } from "../../components/ui/FreoMascot";
 import { ScrollScreen } from "../../components/ui/Screen";
 import { Surface } from "../../components/ui/Surface";
 import { Text } from "../../components/ui/Text";
 import { Wordmark } from "../../components/ui/Wordmark";
-import { deleteAccount } from "../../lib/account";
+import { changePassword, deleteAccount } from "../../lib/account";
 import { confirm } from "../../lib/confirm";
-import { tap, warning } from "../../lib/haptics";
+import { success, tap, warning } from "../../lib/haptics";
 import { useAuth } from "../../providers/AuthContext";
 import { displayName } from "../../lib/displayName";
 import { colors, fonts, radius, spacing } from "../../theme/tokens";
@@ -83,6 +86,36 @@ export default function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [learnMore, setLearnMore] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSaving, setPwSaving] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  function closePw() {
+    setPwOpen(false);
+    setPw("");
+    setPw2("");
+    setPwError(null);
+  }
+
+  async function onChangePassword() {
+    if (pw.length < 8) return setPwError("Use at least 8 characters.");
+    if (pw !== pw2) return setPwError("Passwords don't match.");
+    setPwSaving(true);
+    setPwError(null);
+    try {
+      await changePassword(pw);
+      success();
+      closePw();
+      setNotice("Password updated.");
+    } catch (e) {
+      setPwError(e instanceof Error ? e.message : "Could not update your password.");
+    } finally {
+      setPwSaving(false);
+    }
+  }
   const version = Constants.expoConfig?.version ?? "1.0.0";
 
   async function onSignOut() {
@@ -137,6 +170,7 @@ export default function SettingsScreen() {
             </Text>
           </View>
         </View>
+        <Row icon="key-outline" label="Change password" onPress={() => setPwOpen(true)} />
         <Row icon="log-out-outline" label="Sign out" onPress={() => void onSignOut()} />
       </Group>
 
@@ -174,6 +208,22 @@ export default function SettingsScreen() {
       </Group>
 
       {error ? <Banner message={error} /> : null}
+      {notice ? <Banner tone="success" message={notice} /> : null}
+
+      <BottomSheet
+        visible={pwOpen}
+        onClose={closePw}
+        title="Change password"
+        subtitle="At least 8 characters."
+        footer={<Button label="Save new password" onPress={() => void onChangePassword()} loading={pwSaving} />}
+      >
+        <View style={styles.pwFields}>
+          <TextField label="New password" icon="lock-closed-outline" password value={pw} onChangeText={(t) => { setPw(t); setPwError(null); }}
+            textContentType="newPassword" autoComplete="new-password" error={pwError} />
+          <TextField label="Confirm new password" icon="lock-closed-outline" password value={pw2} onChangeText={(t) => { setPw2(t); setPwError(null); }}
+            textContentType="newPassword" autoComplete="new-password" returnKeyType="done" onSubmitEditing={() => void onChangePassword()} />
+        </View>
+      </BottomSheet>
 
       <View style={styles.about}>
         <FreoMascot size={56} />
@@ -185,6 +235,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  pwFields: { gap: 16 },
   center: { textAlign: "center" },
   group: { gap: spacing.xs },
   groupLabel: { marginLeft: spacing.md },

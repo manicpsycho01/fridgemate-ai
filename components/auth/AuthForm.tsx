@@ -139,7 +139,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 {copy.subtitle}
               </Text>
             </View>
-            <FreoMascot size={116} float style={styles.freo} />
+            <FreoMascot size={96} float style={styles.freo} />
           </AnimatedEntrance>
 
           {banner ? <Banner tone={banner.tone} message={banner.message} /> : null}
@@ -254,10 +254,10 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: spacing.lg },
   inner: { width: "100%", maxWidth: 440, alignSelf: "center", gap: spacing.lg },
   topBar: { flexDirection: "row", marginLeft: -spacing.xs },
-  hero: { flexDirection: "row", alignItems: "flex-end", marginTop: -spacing.xs },
-  titles: { flex: 1, gap: spacing.xs, paddingBottom: spacing.xs },
-  // Freo peeks in from the right edge of the screen.
-  freo: { marginRight: -spacing.xxl, transform: [{ rotate: "-8deg" }] },
+  hero: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: -spacing.xs },
+  titles: { flexShrink: 1, gap: spacing.xs },
+  // Freo sits right beside the title, with a slight tilt for character.
+  freo: { transform: [{ rotate: "-6deg" }] },
   fields: { gap: spacing.md },
   forgot: { alignSelf: "flex-end", minHeight: 44, justifyContent: "center", marginTop: -spacing.xs },
   legal: { marginTop: -spacing.xs },
