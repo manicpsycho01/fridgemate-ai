@@ -3,5 +3,10 @@
   "compilerOptions": {
     "strict": true
   },
-  "exclude": ["supabase/functions"]
+  "exclude": [
+    "supabase/functions",
+    "tests",
+    "playwright.config.ts",
+    "dist"
+  ]
 }

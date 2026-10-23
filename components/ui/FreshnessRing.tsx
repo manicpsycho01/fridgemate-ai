@@ -52,7 +52,7 @@ export function FreshnessRing({ name, freshness, size = 48 }: { name: string; fr
           {value}
         </Text>
         {freshness.status !== "expired" ? (
-          <Text variant="caption" style={{ color: t.ink, fontSize: Math.max(9, size * 0.18), lineHeight: Math.max(11, size * 0.2) }} maxFontSizeMultiplier={1}>
+          <Text variant="caption" style={{ color: t.ink, fontSize: Math.max(11, size * 0.18), lineHeight: Math.max(13, size * 0.2) }} maxFontSizeMultiplier={1}>
             {freshness.daysLeft === 1 ? "day" : "days"}
           </Text>
         ) : null}

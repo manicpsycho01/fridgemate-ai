@@ -33,6 +33,6 @@ export function Stepper({ value, onChange, label }: { value: number; onChange: (
 
 const styles = StyleSheet.create({
   wrap: { flexDirection: "row", alignItems: "center", backgroundColor: colors.sunk, borderRadius: radius.pill },
-  btn: { width: 38, height: 34, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
+  btn: { width: 44, height: 44, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
   value: { minWidth: 20, textAlign: "center" },
 });

@@ -62,8 +62,15 @@ export default function RecipeDetailScreen() {
 
   const have = (ing: string) => (fridgeNames ? ingredientMatchesAny(ing, fridgeNames) : false);
 
-  function openSheet() {
-    setUsage(recipe!.ingredientsUsed.map((ing) => (have(ing) ? "used_some" : "didnt_use")));
+  async function openSheet() {
+    // The fridge loads in the background; if it hasn't arrived yet, wait for it so the defaults are right
+    // (otherwise everything starts as "Didn't use" and nothing gets saved).
+    let names = fridgeNames;
+    if (!names) {
+      names = await getInventory().then((items) => items.map((i) => i.name)).catch(() => []);
+      setFridgeNames(names);
+    }
+    setUsage(recipe!.ingredientsUsed.map((ing) => (ingredientMatchesAny(ing, names!) ? "used_some" : "didnt_use")));
     setSheetOpen(true);
   }
 
@@ -72,15 +79,14 @@ export default function RecipeDetailScreen() {
     const anyUsed = entries.some((e) => e.action !== "didnt_use");
     setSaving(true);
     try {
-      if (anyUsed) {
-        await Promise.all([saveRecipeToHistory(recipe!), applyPerIngredientRecipeUsage(entries)]);
-      }
+      // The meal always goes to History; the fridge only changes for what was marked as used.
+      await Promise.all([saveRecipeToHistory(recipe!), anyUsed ? applyPerIngredientRecipeUsage(entries) : Promise.resolve()]);
       success();
       setSheetOpen(false);
       setStatus(
         anyUsed
           ? { tone: "success", message: "Nice cooking! Saved to History and your fridge is updated." }
-          : { tone: "info", message: "No ingredients marked as used, so nothing changed." }
+          : { tone: "success", message: "Saved to History. Nothing was marked as used, so your fridge is unchanged." }
       );
       const items = await getInventory().catch(() => null);
       if (items) setFridgeNames(items.map((i) => i.name));
@@ -195,7 +201,7 @@ export default function RecipeDetailScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-        <Button variant="hero" label="I cooked this" icon="checkmark-done" onPress={openSheet} />
+        <Button variant="hero" label="I cooked this" icon="checkmark-done" onPress={() => void openSheet()} />
       </View>
 
       <BottomSheet

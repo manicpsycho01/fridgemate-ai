@@ -53,7 +53,7 @@ export function Chip({ label, onPress, selected = false, tone = "default", food,
 }
 
 const styles = StyleSheet.create({
-  base: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 40, paddingHorizontal: spacing.sm + 2, borderRadius: radius.pill },
+  base: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingHorizontal: spacing.sm + 2, borderRadius: radius.pill },
   outlined: { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineStrong },
   text: { maxWidth: 220 },
 });

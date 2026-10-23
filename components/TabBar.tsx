@@ -21,7 +21,7 @@ export function TabBar({ state, descriptors, navigation, insets }: BottomTabBarP
   // Keep labels well clear of the home indicator (and give devices without one some breathing room).
   const bottom = Math.max(insets.bottom, spacing.sm);
   return (
-    <View style={[styles.bar, { paddingBottom: bottom }]} accessibilityRole="tablist">
+    <View testID="tab-bar" style={[styles.bar, { paddingBottom: bottom }]} accessibilityRole="tablist">
       {state.routes.map((route, i) => {
         const focused = state.index === i;
         const title = descriptors[route.key]?.options.title ?? route.name;

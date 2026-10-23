@@ -15,6 +15,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
             key={o.value}
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
+            aria-selected={on}
             onPress={() => {
               if (!on) select();
               onChange(o.value);
@@ -33,6 +34,6 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
 
 const styles = StyleSheet.create({
   wrap: { flexDirection: "row", backgroundColor: colors.sunk, borderRadius: radius.md, padding: 3 },
-  seg: { flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.sm + 1, paddingHorizontal: 8 },
+  seg: { flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: radius.sm + 1, paddingHorizontal: 8 },
   on: { backgroundColor: colors.surface, ...shadow, shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
 });

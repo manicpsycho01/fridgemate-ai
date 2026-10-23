@@ -1,0 +1,2 @@
+- `fridge.jpg` — "Open refrigerator with food at night" by W.carter, CC BY-SA 4.0, via Wikimedia Commons (resized). Used only as test input.
+- `receipt.jpg` — a synthetic grocery receipt made for testing.

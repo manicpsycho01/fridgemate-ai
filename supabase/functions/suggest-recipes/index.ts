@@ -129,6 +129,9 @@ Deno.serve(async (req) => {
         const x = r as { ingredientsUsed?: unknown };
         return Array.isArray(x.ingredientsUsed) && x.ingredientsUsed.some((n) => typeof n === "string" && allowed.has(key(n)));
       });
+      // Models occasionally emit a stray no-break space inside a word ("S\u00a0aute"); tidy text fields.
+      const tidy = (t: unknown) => typeof t === "string" ? t.replace(/(\p{L})\u00a0(\p{Ll})/gu, "$1$2").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim() : t;
+      for (const r of recipes as Record<string, unknown>[]) for (const k of ["title", "description", "time", "difficulty"]) r[k] = tidy(r[k]);
       if (recipes.length) return json({ recipes, model });
       errors.push(`${model}: no usable recipes`);
     } catch (e) {
