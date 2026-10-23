@@ -80,8 +80,13 @@ async function geminiDetect(
   // Current Flash first; Google retires pinned versions regularly (1.5 and 2.0 are gone). Lite = less congested fallback.
   const models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"];
   let lastErr = "Model request failed";
+  // Supabase kills a function at 150 s: bound each model so a slow one falls through instead of hanging.
+  const deadline = Date.now() + 110_000;
 
-  for (const model of models) {
+  for (const [i, model] of models.entries()) {
+    const remaining = deadline - Date.now();
+    if (remaining < 5_000) break;
+    const slice = Math.min(i === 0 ? 45_000 : 30_000, remaining);
     const url =
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
@@ -115,11 +120,12 @@ async function geminiDetect(
       const call = () => fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(slice),
         body: JSON.stringify(geminiBody),
       });
       let gRes = await call();
       // Overload / rate limit: one quick retry before falling back to the next model.
-      if (gRes.status === 429 || gRes.status === 500 || gRes.status === 503) {
+      if ((gRes.status === 429 || gRes.status === 500 || gRes.status === 503) && deadline - Date.now() > slice) {
         await new Promise((r) => setTimeout(r, 1200));
         gRes = await call();
       }

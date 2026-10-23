@@ -12,7 +12,8 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 // Current Flash first; Google retires pinned versions regularly (1.5 and 2.0 are gone).
-const MODELS = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"];
+// Lite first: in testing the larger models took 40 s+ (or hung) for recipe JSON, while lite answered in seconds.
+const MODELS = ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.5-flash", "gemini-3.8-flash"];
 /** Overload / rate-limit statuses worth one quick retry before moving to the next model. */
 const RETRYABLE = new Set([429, 500, 503]);
 /** Recipe ideas don't need deep reasoning: keep "thinking" minimal for speed (field name differs per generation). */
@@ -96,13 +97,20 @@ Deno.serve(async (req) => {
 
   const list = ingredients.map((i) => `- ${i.name}${i.daysLeft === null ? "" : ` (daysLeft: ${i.daysLeft})`}`).join("\n");
   const errors: string[] = [];
-  for (const model of MODELS) {
+  // Supabase kills a function at 150 s. Give each model a bounded slice so a slow or stuck model
+  // falls through to the next one instead of hanging the whole request (seen in testing: 150 s timeouts).
+  const deadline = Date.now() + 110_000;
+  for (const [i, model] of MODELS.entries()) {
+    const remaining = deadline - Date.now();
+    if (remaining < 5_000) { errors.push(`${model}: skipped (out of time)`); break; }
+    const slice = Math.min(i === 0 ? 40_000 : 30_000, remaining);
     try {
       const call = () => fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(slice),
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: PROMPT }] },
             contents: [{ role: "user", parts: [{ text: `Fridge ingredients:\n${list}` }] }],
@@ -111,7 +119,7 @@ Deno.serve(async (req) => {
         },
       );
       let res = await call();
-      if (RETRYABLE.has(res.status)) { await sleep(1200); res = await call(); }
+      if (RETRYABLE.has(res.status) && deadline - Date.now() > slice) { await sleep(1200); res = await call(); }
       const out = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message?: string } };
       if (!res.ok) { errors.push(`${model}: ${out.error?.message ?? res.status}`); continue; }
       const text = out.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";

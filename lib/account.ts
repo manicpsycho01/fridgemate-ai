@@ -1,4 +1,8 @@
+import { Platform } from "react-native";
 import { isSupabaseConfigured, supabase } from "./supabase";
+
+/** The web app hosts the "Set a new password" page that reset emails link to. */
+const SITE = process.env.EXPO_PUBLIC_SITE_URL ?? (Platform.OS === "web" && typeof window !== "undefined" ? window.location.origin : "");
 
 /**
  * Permanently deletes the signed-in user's account and all their data (App Store guideline 5.1.1(v)).
@@ -15,7 +19,7 @@ export async function deleteAccount(): Promise<void> {
 /** Sends a password-reset email. */
 export async function sendPasswordReset(email: string): Promise<void> {
   if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
-  const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), SITE ? { redirectTo: `${SITE}/reset-password` } : undefined);
   if (error) throw error;
 }
 
